@@ -1,7 +1,0 @@
-<Solution>
-  <Configurations>
-    <Platform Name="x64" />
-    <Platform Name="x86" />
-  </Configurations>
-  <Project Path="Bike_2U_Bicycle_Rental_System/Bike_2U_Bicycle_Rental_System.vcxproj" />
-</Solution>
