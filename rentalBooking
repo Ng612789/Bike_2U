@@ -1,0 +1,296 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <fstream>
+#include <iomanip>
+#include <sstream>
+#include <limits>
+
+using namespace std;
+
+// ==================== CONSTANTS ====================
+const int MAX_RENTAL_HOURS = 24;   // Global constant for maximum booking duration
+
+// ==================== STRUCTURES ====================
+struct Bicycle {
+    int bikeID;
+    string type;
+    string brand;
+    double rentalRatePerHour;
+    bool isAvailable;
+};
+
+struct Booking {
+    int bookingID;
+    int customerID;
+    int bikeID;
+    int duration;          // in hours
+    string status;         // "Active" or "Completed"
+};
+
+// ==================== UTILITY ====================
+void clearInputBuffer() {
+    cin.clear();
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+}
+
+// ==================== FUNCTION DECLARATIONS ====================
+void DisplayBookingMenu(vector<Booking>& bookings, vector<Bicycle>& inventory);
+void CreateBooking(vector<Booking>& bookings, vector<Bicycle>& inventory);
+void ViewActiveBookings(const vector<Booking>& bookings);
+void ReturnBicycle(vector<Booking>& bookings, vector<Bicycle>& inventory);
+void SaveBookingsToFile(const vector<Booking>& bookings, const string& filename);
+void LoadBookingsFromFile(vector<Booking>& bookings, const string& filename);
+void SyncInventoryWithBookings(const vector<Booking>& bookings, vector<Bicycle>& inventory);
+bool checkAvailability(int bikeID, const vector<Bicycle>& inventory);
+
+// ==================== MAIN ====================
+int main() {
+    vector<Bicycle> inventory = {
+        {101, "Mountain", "Trek", 5.0, true},
+        {102, "Road", "Giant", 4.0, true},
+        {103, "Hybrid", "Specialized", 3.5, true}
+    };
+
+    vector<Booking> bookings;
+
+    LoadBookingsFromFile(bookings, "booking.csv");        // Load existing bookings
+    SyncInventoryWithBookings(bookings, inventory);       // Sync bike availability state
+
+    DisplayBookingMenu(bookings, inventory);              // Launch booking menu
+
+    return 0;
+}
+
+// ==================== FUNCTION DEFINITIONS ====================
+
+// Keeps inventory availability aligned with loaded active bookings
+void SyncInventoryWithBookings(const vector<Booking>& bookings, vector<Bicycle>& inventory) {
+    for (const auto& b : bookings) {
+        if (b.status == "Active") {
+            for (auto& bike : inventory) {
+                if (bike.bikeID == b.bikeID) {
+                    bike.isAvailable = false;
+                    break;
+                }
+            }
+        }
+    }
+}
+
+// Displays the booking submenu and routes choices via switch
+void DisplayBookingMenu(vector<Booking>& bookings, vector<Bicycle>& inventory) {
+    char choice;
+    do {
+        cout << "\n========== BOOKING MENU ==========\n";
+        cout << "1. Create a Booking\n";
+        cout << "2. View Active Bookings\n";
+        cout << "3. Return a Bicycle\n";
+        cout << "4. Save Bookings to File\n";
+        cout << "5. Load Bookings from File\n";
+        cout << "6. Back to Main Menu\n";
+        cout << "Enter your choice: ";
+        cin >> choice;
+        clearInputBuffer();
+
+        switch (choice) {
+        case '1':
+            CreateBooking(bookings, inventory);
+            break;
+        case '2':
+            ViewActiveBookings(bookings);
+            break;
+        case '3':
+            ReturnBicycle(bookings, inventory);
+            break;
+        case '4':
+            SaveBookingsToFile(bookings, "booking.csv");
+            break;
+        case '5':
+            LoadBookingsFromFile(bookings, "booking.csv");
+            SyncInventoryWithBookings(bookings, inventory);
+            break;
+        case '6':
+            cout << "Returning to previous menu.\n";
+            break;
+        default:
+            cout << "Invalid choice. Try again.\n";
+        }
+    } while (choice != '6');
+}
+
+// Checks if a bike is available for booking
+bool checkAvailability(int bikeID, const vector<Bicycle>& inventory) {
+    for (const auto& bike : inventory) {
+        if (bike.bikeID == bikeID) {
+            return bike.isAvailable;
+        }
+    }
+    return false;
+}
+
+// Creates a new booking
+void CreateBooking(vector<Booking>& bookings, vector<Bicycle>& inventory) {
+    int bikeID, customerID, duration;
+    string pickupTime;
+
+    cout << "Enter Customer ID: ";
+    cin >> customerID;
+    clearInputBuffer();
+
+    cout << "Enter Bike ID to book: ";
+    cin >> bikeID;
+    clearInputBuffer();
+
+    if (!checkAvailability(bikeID, inventory)) {
+        cout << "Error: Bike ID " << bikeID << " is either not available or does not exist.\n";
+        return;
+    }
+
+    do {
+        cout << "Enter rental duration in hours (1 - " << MAX_RENTAL_HOURS << "): ";
+        cin >> duration;
+        clearInputBuffer();
+        if (duration <= 0 || duration > MAX_RENTAL_HOURS) {
+            cout << "Invalid duration. Please enter a value between 1 and " << MAX_RENTAL_HOURS << ".\n";
+        }
+    } while (duration <= 0 || duration > MAX_RENTAL_HOURS);
+
+    cout << "Enter desired pickup time (e.g., 14:30): ";
+    getline(cin, pickupTime);
+
+    bool paymentAuthorized = true;
+    cout << "Processing payment... ";
+    if (!paymentAuthorized) {
+        cout << "Payment failed! Booking cancelled.\n";
+        return;
+    }
+    cout << "Payment authorized.\n";
+
+    // Mark bike as unavailable
+    for (auto& bike : inventory) {
+        if (bike.bikeID == bikeID) {
+            bike.isAvailable = false;
+            break;
+        }
+    }
+
+    // Create record
+    Booking newBooking;
+    newBooking.bookingID = bookings.empty() ? 1001 : bookings.back().bookingID + 1;
+    newBooking.customerID = customerID;
+    newBooking.bikeID = bikeID;
+    newBooking.duration = duration;
+    newBooking.status = "Active";
+
+    bookings.push_back(newBooking);
+    cout << "Booking created successfully. Booking ID: " << newBooking.bookingID << "\n";
+}
+
+// Displays all active bookings
+void ViewActiveBookings(const vector<Booking>& bookings) {
+    bool hasActive = false;
+    for (const auto& b : bookings) {
+        if (b.status == "Active") {
+            hasActive = true;
+            break;
+        }
+    }
+
+    if (!hasActive) {
+        cout << "No active bookings.\n";
+        return;
+    }
+
+    cout << "\n" << left
+        << setw(12) << "BookingID"
+        << setw(12) << "CustomerID"
+        << setw(10) << "BikeID"
+        << setw(10) << "Duration"
+        << setw(12) << "Status" << endl;
+    cout << string(56, '-') << endl;
+
+    for (const auto& b : bookings) {
+        if (b.status == "Active") {
+            cout << left
+                << setw(12) << b.bookingID
+                << setw(12) << b.customerID
+                << setw(10) << b.bikeID
+                << setw(10) << (to_string(b.duration) + " hrs")
+                << setw(12) << b.status << endl;
+        }
+    }
+}
+
+// Marks a booking as completed and frees the bike
+void ReturnBicycle(vector<Booking>& bookings, vector<Bicycle>& inventory) {
+    int bookingID;
+    cout << "Enter Booking ID to return: ";
+    cin >> bookingID;
+    clearInputBuffer();
+
+    bool found = false;
+    for (auto& booking : bookings) {
+        if (booking.bookingID == bookingID && booking.status == "Active") {
+            for (auto& bike : inventory) {
+                if (bike.bikeID == booking.bikeID) {
+                    bike.isAvailable = true;
+                    break;
+                }
+            }
+            booking.status = "Completed";
+            cout << "Bicycle returned successfully. Booking ID " << bookingID << " completed.\n";
+            found = true;
+            break;
+        }
+    }
+    if (!found) {
+        cout << "No active booking found with ID " << bookingID << ".\n";
+    }
+}
+
+// Saves bookings to CSV
+void SaveBookingsToFile(const vector<Booking>& bookings, const string& filename) {
+    ofstream outFile(filename);
+    if (!outFile) {
+        cerr << "Error opening file " << filename << " for writing.\n";
+        return;
+    }
+    for (const auto& b : bookings) {
+        outFile << b.bookingID << ","
+            << b.customerID << ","
+            << b.bikeID << ","
+            << b.duration << ","
+            << b.status << "\n";
+    }
+    outFile.close();
+    cout << "Bookings saved to " << filename << "\n";
+}
+
+// Loads bookings from CSV
+void LoadBookingsFromFile(vector<Booking>& bookings, const string& filename) {
+    ifstream inFile(filename);
+    if (!inFile) {
+        cout << "No existing bookings file found. Starting with empty bookings.\n";
+        return;
+    }
+
+    bookings.clear();
+    string line;
+    while (getline(inFile, line)) {
+        if (line.empty()) continue;
+        stringstream ss(line);
+        string token;
+        Booking b;
+
+        getline(ss, token, ','); b.bookingID = stoi(token);
+        getline(ss, token, ','); b.customerID = stoi(token);
+        getline(ss, token, ','); b.bikeID = stoi(token);
+        getline(ss, token, ','); b.duration = stoi(token);
+        getline(ss, token, ','); b.status = token;
+
+        bookings.push_back(b);
+    }
+    inFile.close();
+    cout << "Bookings loaded from " << filename << " (" << bookings.size() << " records).\n";
+}
