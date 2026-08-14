@@ -34,6 +34,8 @@ const string ADMIN_FILE = "admin.csv";
 const string USER_FILE = "user.csv";
 const string REPAIR_FILE = "repair_reports.csv";
 const string BOOKING_FILE = "booking.csv";
+const string INVENTORY_FILE = "inventory.csv";
+const string PAYMENT_FILE = "payment.csv";
 
 const double HOURLY_RATE = 5.50;
 const int MAX_RENTAL_HOURS = 24;
@@ -42,7 +44,7 @@ const int MAX_RENTAL_HOURS = 24;
 // Structures
 // ------------------------------------------------------------------
 struct Account {
-    string accountID;          // changed to string
+    string accountID;          // CUSxxxx
     string name;
     string email;
     string phone;
@@ -51,10 +53,10 @@ struct Account {
 };
 
 struct RepairReport {
-    string repairID;           // changed to string
+    string repairID;           // BRRxxxx
     string userID;
     string userName;
-    string bicycleID;
+    string bicycleID;          // BICxxxx
     string date;
     string time;
     string damageType;
@@ -62,7 +64,7 @@ struct RepairReport {
 };
 
 struct Bicycle {
-    int bikeID;
+    string bikeID;             // BICxxxx (was int)
     string type;
     string brand;
     double rentalRatePerHour;
@@ -70,9 +72,9 @@ struct Bicycle {
 };
 
 struct Booking {
-    int bookingID;
-    string customerID;        // changed to string (matches Account.accountID)
-    int bikeID;
+    string bookingID;          // BKKxxxx (was int)
+    string customerID;         // CUSxxxx
+    string bikeID;             // BICxxxx (was int)
     int duration;
     string status;
 };
@@ -84,9 +86,9 @@ const double OVERTIME_RATE = 5.50;
 const double TAX_RATE = 0.06;
 
 struct Payment {
-    int paymentID;
-    int bookingID;
-    int bikeID;
+    string paymentID;          // INVxxxx (was int)
+    string bookingID;          // BKKxxxx (was int)
+    string bikeID;             // BICxxxx (was int)
     string customerName;
     double paymentAmount;
     string paymentMethod;
@@ -94,7 +96,6 @@ struct Payment {
 };
 
 vector<Payment> transactions;
-int nextPaymentID = 1;
 string currentCustomer = "";
 
 // ------------------------------------------------------------------
@@ -103,12 +104,12 @@ string currentCustomer = "";
 void clearScreen();
 void waitForEnter(const string& indent = "");
 void Menu(Account& admin, vector<Account>& users, vector<RepairReport>& repairs,
-    vector<Bicycle>& inventory, int& nextBikeID, vector<Booking>& bookings);
+    vector<Bicycle>& inventory, vector<Booking>& bookings);
 
 void loginMenu(Account& admin, vector<Account>& users, vector<RepairReport>& repairs,
-    vector<Bicycle>& inventory, int& nextBikeID, vector<Booking>& bookings);
+    vector<Bicycle>& inventory, vector<Booking>& bookings);
 void adminMenu(vector<RepairReport>& repairs, vector<Account>& users,
-    vector<Bicycle>& inventory, int& nextBikeID, vector<Booking>& bookings);
+    vector<Bicycle>& inventory, vector<Booking>& bookings);
 void registerMenu(vector<Account>& users, vector<RepairReport>& repairs,
     vector<Bicycle>& inventory, vector<Booking>& bookings);
 void adminRepairServiceMenu(vector<RepairReport>& repairs);
@@ -121,6 +122,9 @@ bool confirmAction(const string& message);
 string generateIDFromList(const vector<string>& existingIDs, const string& prefix);
 string generateAccountID(const vector<Account>& users);
 string generateRepairID(const vector<RepairReport>& repairs);
+string generateBicycleID(const vector<Bicycle>& inventory);
+string generateBookingID(const vector<Booking>& bookings);
+string generatePaymentID(const vector<Payment>& payments);
 
 bool validateEmail(const string& email);
 bool validatePhone(const string& phone);
@@ -153,14 +157,15 @@ void Repair_SaveFile(const vector<RepairReport>& repairs);
 void Repair_LoadFile(vector<RepairReport>& repairs);
 
 // Bicycle inventory functions
-void DisplayInventoryMenu(vector<Bicycle>& inventory, int& nextBikeID, const vector<Booking>& bookings);
-void AddBicycle(vector<Bicycle>& inventory, int& nextBikeID);
+void DisplayInventoryMenu(vector<Bicycle>& inventory, vector<Booking>& bookings);
+bool isBikeTypeValid(const string& type);
+void AddBicycle(vector<Bicycle>& inventory);
 void UpdateBicycle(vector<Bicycle>& inventory, const vector<Booking>& bookings);
 void RemoveBicycle(vector<Bicycle>& inventory);
-int SearchBicycle(const vector<Bicycle>& inventory, int bikeID);
+int SearchBicycle(const vector<Bicycle>& inventory, const string& bikeID);
 void ViewBicycle(const vector<Bicycle>& inventory);
 void SaveInventoryToFile(const vector<Bicycle>& inventory);
-void LoadInventoryFromFile(vector<Bicycle>& inventory, int& nextBikeID);
+void LoadInventoryFromFile(vector<Bicycle>& inventory);
 
 // Rental booking functions
 void rentalBookingMenu(vector<Booking>& bookings, vector<Bicycle>& inventory, const string& customerID, const string& customerName);
@@ -170,8 +175,8 @@ void ReturnBicycle(vector<Booking>& bookings, vector<Bicycle>& inventory);
 void SaveBookingsToFile(const vector<Booking>& bookings, const string& filename);
 void LoadBookingsFromFile(vector<Booking>& bookings, const string& filename);
 void SyncInventoryWithBookings(const vector<Booking>& bookings, vector<Bicycle>& inventory);
-bool checkAvailability(int bikeID, const vector<Bicycle>& inventory);
-bool hasActiveBookingForBike(int bikeID, const vector<Booking>& bookings);
+bool checkAvailability(const string& bikeID, const vector<Bicycle>& inventory);
+bool hasActiveBookingForBike(const string& bikeID, const vector<Booking>& bookings);
 
 // Payment functions
 void LoadPaymentFromFile();
@@ -179,7 +184,7 @@ void SavePaymentToFile();
 bool ProcessPaymentForBooking(const Booking& booking, double rentalHours, double baseRate, const string& customerName);
 void DisplayUserPaymentHistory(const string& customerName);
 void DisplayAllPayments();
-void GenerateReceipt(int paymentID);
+void GenerateReceipt(const string& paymentID);
 bool isValidCardNumber(const string& cardNum);
 bool isValidCVV(const string& cvv);
 void DisplayPaymentMenuForUser();
@@ -198,7 +203,7 @@ void waitForEnter(const string& indent) {
 }
 
 // ------------------------------------------------------------------
-// ID Generation (from second code)
+// ID Generation
 // ------------------------------------------------------------------
 string generateIDFromList(const vector<string>& existingIDs, const string& prefix) {
     int maxNum = 0;
@@ -232,11 +237,35 @@ string generateRepairID(const vector<RepairReport>& repairs) {
     return generateIDFromList(ids, "BRR");
 }
 
+string generateBicycleID(const vector<Bicycle>& inventory) {
+    vector<string> ids;
+    ids.reserve(inventory.size());
+    for (const auto& b : inventory)
+        ids.push_back(b.bikeID);
+    return generateIDFromList(ids, "BIC");
+}
+
+string generateBookingID(const vector<Booking>& bookings) {
+    vector<string> ids;
+    ids.reserve(bookings.size());
+    for (const auto& b : bookings)
+        ids.push_back(b.bookingID);
+    return generateIDFromList(ids, "BKK");
+}
+
+string generatePaymentID(const vector<Payment>& payments) {
+    vector<string> ids;
+    ids.reserve(payments.size());
+    for (const auto& p : payments)
+        ids.push_back(p.paymentID);
+    return generateIDFromList(ids, "INV");
+}
+
 // ------------------------------------------------------------------
 // Main Menu
 // ------------------------------------------------------------------
 void Menu(Account& admin, vector<Account>& users, vector<RepairReport>& repairs,
-    vector<Bicycle>& inventory, int& nextBikeID, vector<Booking>& bookings) {
+    vector<Bicycle>& inventory, vector<Booking>& bookings) {
     const string indent = string(28, ' ');
     while (true) {
         clearScreen();
@@ -260,7 +289,7 @@ void Menu(Account& admin, vector<Account>& users, vector<RepairReport>& repairs,
 
         switch (option) {
         case 1:
-            loginMenu(admin, users, repairs, inventory, nextBikeID, bookings);
+            loginMenu(admin, users, repairs, inventory, bookings);
             break;
         case 2:
             registerMenu(users, repairs, inventory, bookings);
@@ -277,7 +306,7 @@ void Menu(Account& admin, vector<Account>& users, vector<RepairReport>& repairs,
 // Login / Register
 // ------------------------------------------------------------------
 void loginMenu(Account& admin, vector<Account>& users, vector<RepairReport>& repairs,
-    vector<Bicycle>& inventory, int& nextBikeID, vector<Booking>& bookings) {
+    vector<Bicycle>& inventory, vector<Booking>& bookings) {
     const string indent = string(43, ' ');
     clearScreen();
     cout << string(6, '\n') << endl;
@@ -285,7 +314,7 @@ void loginMenu(Account& admin, vector<Account>& users, vector<RepairReport>& rep
     cout << string(2, '\n') << endl;
 
     string email, password;
-    cout << indent << "[Enter 0 to turn back]" << endl;
+    cout << indent << "[Enter 0 to return back]" << endl;
     cout << indent << "Email: ";
     getline(cin, email);
     if (trim(email) == "0") {
@@ -295,7 +324,7 @@ void loginMenu(Account& admin, vector<Account>& users, vector<RepairReport>& rep
     password = getPasswordInput(indent + "Password: ");
 
     if (matchAdmin(admin, email, password)) {
-        adminMenu(repairs, users, inventory, nextBikeID, bookings);
+        adminMenu(repairs, users, inventory, bookings);
     }
     else {
         int idx = matchUser(users, email, password);
@@ -324,7 +353,7 @@ void registerMenu(vector<Account>& users, vector<RepairReport>& repairs,
     }
     if (idx != -1) {
         User_SaveFile(users);
-        cout << "\n" << indent << "[^_^] Registration successful! Redirecting to user menu...\n";
+        cout << "\n" << indent << "[^_^] Registration successful! Processing to user menu...\n";
         waitForEnter(indent);
         currentCustomer = users[idx].name;
         userMenu(users, idx, repairs, inventory, bookings);
@@ -339,7 +368,7 @@ void registerMenu(vector<Account>& users, vector<RepairReport>& repairs,
 // Admin Menu
 // ------------------------------------------------------------------
 void adminMenu(vector<RepairReport>& repairs, vector<Account>& users,
-    vector<Bicycle>& inventory, int& nextBikeID, vector<Booking>& bookings) {
+    vector<Bicycle>& inventory, vector<Booking>& bookings) {
     const string indent = string(0, ' ');
     while (true) {
         clearScreen();
@@ -361,7 +390,7 @@ void adminMenu(vector<RepairReport>& repairs, vector<Account>& users,
             adminRepairServiceMenu(repairs);
             break;
         case 3:
-            DisplayInventoryMenu(inventory, nextBikeID, bookings);
+            DisplayInventoryMenu(inventory, bookings);
             break;
         case 4:
             DisplayAllPayments();
@@ -419,7 +448,7 @@ void userMenu(vector<Account>& users, int currentIdx, vector<RepairReport>& repa
         cout << indent << "[2] Payment\n";
         cout << indent << "[3] Repair Service\n";
         cout << indent << "[4] Profile\n";
-        cout << indent << "[0] Logout\n";
+        cout << indent << "[0] Log out\n";
 
         int option = getValidOption(0, 4, indent);
         if (option == -1)
@@ -455,12 +484,12 @@ void accountManagementMenu(vector<RepairReport>& repairs, vector<Account>& users
     const string indent = string(6, ' ');
     while (true) {
         clearScreen();
-        cout << indent << "===== ACCOUNT MANAGEMENT =====\n";
-        cout << indent << "[1] View All Customers\n";
-        cout << indent << "[2] Delete Account\n";
-        cout << indent << "[0] Back\n";
+        cout << "===== ACCOUNT MANAGEMENT =====\n";
+        cout << "[1] View All Customers\n";
+        cout << "[2] Delete Account\n";
+        cout << "[0] Back\n";
 
-        int option = getValidOption(0, 2, indent);
+        int option = getValidOption(0, 2);
         if (option == -1) continue;
 
         switch (option) {
@@ -582,7 +611,7 @@ int registerUser(vector<Account>& users) {
     const string et = string(25, ' ');
     Account newAcc;
 
-    cout << et << "[Enter 0 to turn back]" << endl;
+    cout << et << "[Enter 0 to return back]" << endl;
     cout << et << "Name" << string(11, ' ') << ": ";
     getline(cin, newAcc.name);
     if (trim(newAcc.name) == "0")
@@ -592,7 +621,7 @@ int registerUser(vector<Account>& users) {
         return -1;
     }
 
-    cout << et << "Email" << string(10, ' ') << ": ";
+    cout << et << "Email(e.g user@example.com)" << ": ";
     getline(cin, newAcc.email);
     if (trim(newAcc.email) == "0")
         return -2;
@@ -620,7 +649,7 @@ int registerUser(vector<Account>& users) {
     if (trim(newAcc.password) == "0")
         return -2;
     if (!validatePassword(newAcc.password)) {
-        cout << et << "[X] Password needs " << MIN_PWD << "+ characters (include characters, uppercase, lowercase, number and special symbol).\n";
+        cout << et << "[X] Password needs " << MIN_PWD << "+ characters (include uppercase, lowercase, number and special symbol).\n";
         return -1;
     }
 
@@ -669,7 +698,7 @@ void getCurrentDateTime(string& date, string& timeText) {
     timeText = timeStream.str();
 }
 
-// ---------- Repair Service (updated with string IDs) ----------
+// ---------- Repair Service ----------
 void repairService(const Account& user, vector<RepairReport>& repairs) {
     string damageType;
     bool validInput = false;
@@ -1478,10 +1507,10 @@ void Repair_LoadFile(vector<RepairReport>& repairs) {
 }
 
 // ==================================================================
-// BICYCLE INVENTORY FUNCTIONS (unchanged except string customerID adjustments)
+// BICYCLE INVENTORY FUNCTIONS
 // ==================================================================
 
-void DisplayInventoryMenu(vector<Bicycle>& inventory, int& nextBikeID, const vector<Booking>& bookings) {
+void DisplayInventoryMenu(vector<Bicycle>& inventory, vector<Booking>& bookings) {
     while (true) {
         clearScreen();
         cout << "-----------------------------------\n";
@@ -1492,40 +1521,27 @@ void DisplayInventoryMenu(vector<Bicycle>& inventory, int& nextBikeID, const vec
         cout << "3. Remove a bicycle\n";
         cout << "4. Search for a bicycle\n";
         cout << "5. View all bicycles\n";
-        cout << "6. Return to main menu\n";
+        cout << "0. Return to main menu\n";
 
-        int option = getValidOption(1, 6, "");
+        int option = getValidOption(0, 5, "");
         if (option == -1) continue;
 
         switch (option) {
-        case 1: AddBicycle(inventory, nextBikeID); break;
+        case 1: AddBicycle(inventory); break;
         case 2: UpdateBicycle(inventory, bookings); break;
         case 3: RemoveBicycle(inventory); break;
         case 4: {
             clearScreen();
             cout << "===== SEARCH BICYCLE =====\n";
-            int id;
+            string id;
             cout << "Enter bicycle ID to search: ";
-            string input;
-            getline(cin, input);
-            if (input.empty()) {
+            getline(cin, id);
+            id = trim(id);
+            if (id.empty()) {
                 cout << "[X] Input cannot be empty.\n";
                 waitForEnter();
                 continue;
             }
-            bool valid = true;
-            for (char c : input) {
-                if (!isdigit(static_cast<unsigned char>(c))) {
-                    valid = false;
-                    break;
-                }
-            }
-            if (!valid) {
-                cout << "[X] Please enter a numeric ID.\n";
-                waitForEnter();
-                continue;
-            }
-            id = stoi(input);
             int idx = SearchBicycle(inventory, id);
             if (idx != -1) {
                 cout << "\nFound:\n";
@@ -1542,10 +1558,13 @@ void DisplayInventoryMenu(vector<Bicycle>& inventory, int& nextBikeID, const vec
             break;
         }
         case 5: ViewBicycle(inventory); break;
-        case 6:
-            cout << "Returning to admin menu...\n";
-            waitForEnter();
-            return;
+        case 0:
+            if (confirmAction("Are you sure want to go back?")) {
+                cout << "Returning to admin menu...\n";
+                waitForEnter();
+                return;
+            }
+            break;
         default:
             cout << "[X] Invalid option.\n";
             waitForEnter();
@@ -1553,20 +1572,34 @@ void DisplayInventoryMenu(vector<Bicycle>& inventory, int& nextBikeID, const vec
     }
 }
 
-void AddBicycle(vector<Bicycle>& inventory, int& nextBikeID) {
+bool isValidBikeType(const string& type) {
+    static const vector<string> validTypes = { "city", "mountain", "road", "electric" };
+    string lower = type;
+    transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+    return find(validTypes.begin(), validTypes.end(), lower) != validTypes.end();
+}
+
+void AddBicycle(vector<Bicycle>& inventory) {
     clearScreen();
     cout << "===== ADD NEW BICYCLE =====\n";
 
     Bicycle bike;
-    bike.bikeID = ++nextBikeID;
+    bike.bikeID = generateBicycleID(inventory);
 
-    cout << "Enter Bicycle Type (e.g., Mountain, Road, Electric): ";
-    getline(cin, bike.type);
-
-    if (bike.type.empty()) {
-        cout << "[X] Type cannot be empty.\n";
-        waitForEnter();
-        return;
+    string typeInput;
+    while (true) {
+        cout << "Enter Bicycle Type (city, mountain, road, electric): ";
+        getline(cin, typeInput);
+        if (typeInput.empty()) {
+            cout << "[X] Type cannot be empty.\n";
+            continue;
+        }
+        if (isValidBikeType(typeInput)) {
+            transform(typeInput.begin(), typeInput.end(), typeInput.begin(), ::tolower);
+            bike.type = typeInput;
+            break;
+        }
+        cout << "[X] Invalid type. Allowed types: city, mountain, road, electric.\n";
     }
 
     cout << "Enter Bicycle Brand (e.g., Giant, Trek): ";
@@ -1625,23 +1658,15 @@ void UpdateBicycle(vector<Bicycle>& inventory, const vector<Booking>& bookings) 
     clearScreen();
     cout << "===== UPDATE BICYCLE =====\n";
 
-    int id;
+    string id;
     cout << "Enter the Bicycle ID to update: ";
-    string input;
-    getline(cin, input);
-    if (input.empty()) {
+    getline(cin, id);
+    id = trim(id);
+    if (id.empty()) {
         cout << "[X] Input cannot be empty.\n";
         waitForEnter();
         return;
     }
-    for (char c : input) {
-        if (!isdigit(static_cast<unsigned char>(c))) {
-            cout << "[X] Please enter a numeric ID.\n";
-            waitForEnter();
-            return;
-        }
-    }
-    id = stoi(input);
 
     int idx = SearchBicycle(inventory, id);
     if (idx == -1) {
@@ -1770,23 +1795,15 @@ void RemoveBicycle(vector<Bicycle>& inventory) {
     clearScreen();
     cout << "===== REMOVE BICYCLE =====\n";
 
-    int id;
+    string id;
     cout << "Enter bicycle ID to remove: ";
-    string input;
-    getline(cin, input);
-    if (input.empty()) {
+    getline(cin, id);
+    id = trim(id);
+    if (id.empty()) {
         cout << "[X] Input cannot be empty.\n";
         waitForEnter();
         return;
     }
-    for (char c : input) {
-        if (!isdigit(static_cast<unsigned char>(c))) {
-            cout << "[X] Please enter a numeric ID.\n";
-            waitForEnter();
-            return;
-        }
-    }
-    id = stoi(input);
 
     int idx = SearchBicycle(inventory, id);
     if (idx == -1) {
@@ -1815,7 +1832,7 @@ void RemoveBicycle(vector<Bicycle>& inventory) {
     waitForEnter();
 }
 
-int SearchBicycle(const vector<Bicycle>& inventory, int bikeID) {
+int SearchBicycle(const vector<Bicycle>& inventory, const string& bikeID) {
     for (size_t i = 0; i < inventory.size(); ++i) {
         if (inventory[i].bikeID == bikeID)
             return static_cast<int>(i);
@@ -1832,15 +1849,15 @@ void ViewBicycle(const vector<Bicycle>& inventory) {
     }
 
     cout << "\n----- All Bicycles -----\n";
-    cout << left << setw(6) << "ID"
+    cout << left << setw(12) << "ID"
         << setw(15) << "Type"
         << setw(15) << "Brand"
         << setw(15) << "Rate (RM/h)"
         << setw(12) << "Available" << "\n";
-    cout << string(63, '-') << "\n";
+    cout << string(69, '-') << "\n";
 
     for (size_t i = 0; i < inventory.size(); ++i) {
-        cout << left << setw(6) << inventory[i].bikeID
+        cout << left << setw(12) << inventory[i].bikeID
             << setw(15) << inventory[i].type
             << setw(15) << inventory[i].brand
             << setw(15) << fixed << setprecision(2) << inventory[i].rentalRatePerHour
@@ -1850,9 +1867,9 @@ void ViewBicycle(const vector<Bicycle>& inventory) {
 }
 
 void SaveInventoryToFile(const vector<Bicycle>& inventory) {
-    ofstream outFile("inventory.csv");
+    ofstream outFile(INVENTORY_FILE);
     if (!outFile) {
-        cerr << "Error: Cannot open inventory.csv.\n";
+        cerr << "Error: Cannot open " << INVENTORY_FILE << ".\n";
         return;
     }
 
@@ -1867,14 +1884,13 @@ void SaveInventoryToFile(const vector<Bicycle>& inventory) {
     outFile.close();
 }
 
-void LoadInventoryFromFile(vector<Bicycle>& inventory, int& nextBikeID) {
-    ifstream inFile("inventory.csv");
+void LoadInventoryFromFile(vector<Bicycle>& inventory) {
+    ifstream inFile(INVENTORY_FILE);
     if (!inFile) {
         return;
     }
 
     string line;
-    int maxID = 0;
     while (getline(inFile, line)) {
         if (line.empty()) continue;
 
@@ -1883,13 +1899,13 @@ void LoadInventoryFromFile(vector<Bicycle>& inventory, int& nextBikeID) {
         Bicycle bike;
 
         getline(ss, token, ',');
-        bike.bikeID = stoi(token);
+        bike.bikeID = trim(token);
 
         getline(ss, token, ',');
-        bike.type = token;
+        bike.type = trim(token);
 
         getline(ss, token, ',');
-        bike.brand = token;
+        bike.brand = trim(token);
 
         getline(ss, token, ',');
         bike.rentalRatePerHour = stod(token);
@@ -1898,33 +1914,26 @@ void LoadInventoryFromFile(vector<Bicycle>& inventory, int& nextBikeID) {
         bike.isAvailable = (stoi(token) == 1);
 
         inventory.push_back(bike);
-
-        if (bike.bikeID > maxID)
-            maxID = bike.bikeID;
     }
 
     inFile.close();
-
-    if (!inventory.empty()) {
-        nextBikeID = maxID + 1;
-    }
 }
 
 // ==================================================================
-// RENTAL BOOKING FUNCTIONS (customerID changed to string)
+// RENTAL BOOKING FUNCTIONS
 // ==================================================================
 
 void rentalBookingMenu(vector<Booking>& bookings, vector<Bicycle>& inventory, const string& customerID, const string& customerName) {
     while (true) {
         clearScreen();
         cout << "========== RENTAL BOOKING MENU ==========\n";
-        cout << "1. Create a Booking\n";
-        cout << "2. View Active Bookings\n";
-        cout << "3. Return a Bicycle\n";
-        cout << "4. Back to User Menu\n";
+        cout << "[1] Create a Booking\n";
+        cout << "[2] View Active Bookings\n";
+        cout << "[3] Return a Bicycle\n";
+        cout << "[0] Back to User Menu\n";
         cout << "Enter your choice: ";
 
-        int option = getValidOption(1, 4, "");
+        int option = getValidOption(0, 3, "");
         if (option == -1) continue;
 
         switch (option) {
@@ -1937,7 +1946,7 @@ void rentalBookingMenu(vector<Booking>& bookings, vector<Bicycle>& inventory, co
         case 3:
             ReturnBicycle(bookings, inventory);
             break;
-        case 4:
+        case 0:
             cout << "Returning to user menu.\n";
             waitForEnter();
             return;
@@ -1948,7 +1957,7 @@ void rentalBookingMenu(vector<Booking>& bookings, vector<Bicycle>& inventory, co
     }
 }
 
-bool hasActiveBookingForBike(int bikeID, const vector<Booking>& bookings) {
+bool hasActiveBookingForBike(const string& bikeID, const vector<Booking>& bookings) {
     for (const auto& b : bookings) {
         if (b.bikeID == bikeID && b.status == "Active") {
             return true;
@@ -1973,7 +1982,7 @@ void SyncInventoryWithBookings(const vector<Booking>& bookings, vector<Bicycle>&
     }
 }
 
-bool checkAvailability(int bikeID, const vector<Bicycle>& inventory) {
+bool checkAvailability(const string& bikeID, const vector<Bicycle>& inventory) {
     for (const auto& bike : inventory) {
         if (bike.bikeID == bikeID) {
             return bike.isAvailable;
@@ -1986,23 +1995,15 @@ void CreateBooking(vector<Booking>& bookings, vector<Bicycle>& inventory, const 
     clearScreen();
     cout << "===== CREATE BOOKING =====\n";
 
-    int bikeID;
+    string bikeID;
     cout << "Enter Bike ID to book: ";
-    string input;
-    getline(cin, input);
-    if (input.empty()) {
+    getline(cin, bikeID);
+    bikeID = trim(bikeID);
+    if (bikeID.empty()) {
         cout << "[X] Bike ID cannot be empty.\n";
         waitForEnter();
         return;
     }
-    for (char c : input) {
-        if (!isdigit(static_cast<unsigned char>(c))) {
-            cout << "[X] Bike ID must be numeric.\n";
-            waitForEnter();
-            return;
-        }
-    }
-    bikeID = stoi(input);
 
     if (!checkAvailability(bikeID, inventory)) {
         cout << "Error: Bike ID " << bikeID << " is either not available or does not exist.\n";
@@ -2013,6 +2014,7 @@ void CreateBooking(vector<Booking>& bookings, vector<Bicycle>& inventory, const 
     int duration;
     while (true) {
         cout << "Enter rental duration in hours (1 - " << MAX_RENTAL_HOURS << "): ";
+        string input;
         getline(cin, input);
         if (input.empty()) {
             cout << "[X] Duration cannot be empty.\n";
@@ -2052,7 +2054,7 @@ void CreateBooking(vector<Booking>& bookings, vector<Bicycle>& inventory, const 
     }
 
     Booking tempBooking;
-    tempBooking.bookingID = bookings.empty() ? 1001 : bookings.back().bookingID + 1;
+    tempBooking.bookingID = generateBookingID(bookings);
     tempBooking.customerID = customerID;
     tempBooking.bikeID = bikeID;
     tempBooking.duration = duration;
@@ -2101,17 +2103,17 @@ void ViewActiveBookings(const vector<Booking>& bookings) {
     cout << "\n" << left
         << setw(12) << "BookingID"
         << setw(12) << "CustomerID"
-        << setw(10) << "BikeID"
+        << setw(12) << "BikeID"
         << setw(10) << "Duration"
         << setw(12) << "Status" << endl;
-    cout << string(56, '-') << endl;
+    cout << string(58, '-') << endl;
 
     for (const auto& b : bookings) {
         if (b.status == "Active") {
             cout << left
                 << setw(12) << b.bookingID
                 << setw(12) << b.customerID
-                << setw(10) << b.bikeID
+                << setw(12) << b.bikeID
                 << setw(10) << (to_string(b.duration) + " hrs")
                 << setw(12) << b.status << endl;
         }
@@ -2122,23 +2124,15 @@ void ViewActiveBookings(const vector<Booking>& bookings) {
 void ReturnBicycle(vector<Booking>& bookings, vector<Bicycle>& inventory) {
     clearScreen();
     cout << "===== RETURN BICYCLE =====\n";
-    int bookingID;
+    string bookingID;
     cout << "Enter Booking ID to return: ";
-    string input;
-    getline(cin, input);
-    if (input.empty()) {
+    getline(cin, bookingID);
+    bookingID = trim(bookingID);
+    if (bookingID.empty()) {
         cout << "[X] Booking ID cannot be empty.\n";
         waitForEnter();
         return;
     }
-    for (char c : input) {
-        if (!isdigit(static_cast<unsigned char>(c))) {
-            cout << "[X] Booking ID must be numeric.\n";
-            waitForEnter();
-            return;
-        }
-    }
-    bookingID = stoi(input);
 
     bool found = false;
     for (auto& booking : bookings) {
@@ -2192,11 +2186,11 @@ void LoadBookingsFromFile(vector<Booking>& bookings, const string& filename) {
         string token;
         Booking b;
 
-        getline(ss, token, ','); b.bookingID = stoi(token);
-        getline(ss, token, ','); b.customerID = token;
-        getline(ss, token, ','); b.bikeID = stoi(token);
+        getline(ss, token, ','); b.bookingID = trim(token);
+        getline(ss, token, ','); b.customerID = trim(token);
+        getline(ss, token, ','); b.bikeID = trim(token);
         getline(ss, token, ','); b.duration = stoi(token);
-        getline(ss, token, ','); b.status = token;
+        getline(ss, token, ','); b.status = trim(token);
 
         bookings.push_back(b);
     }
@@ -2334,7 +2328,7 @@ bool ProcessPaymentForBooking(const Booking& booking, double rentalHours, double
     }
 
     Payment newP;
-    newP.paymentID = nextPaymentID++;
+    newP.paymentID = generatePaymentID(transactions);
     newP.bookingID = booking.bookingID;
     newP.bikeID = booking.bikeID;
     newP.customerName = customerName;
@@ -2363,20 +2357,20 @@ void DisplayUserPaymentHistory(const string& customerName) {
 
     bool found = false;
     cout << "\n========== MY PAYMENT HISTORY ==========\n";
-    cout << left << setw(10) << "ID"
+    cout << left << setw(12) << "PaymentID"
         << setw(12) << "Booking"
-        << setw(10) << "Bike"
+        << setw(12) << "Bike"
         << setw(12) << "Amount"
         << setw(18) << "Method"
         << setw(12) << "Date" << "\n";
-    cout << string(74, '-') << "\n";
+    cout << string(78, '-') << "\n";
 
     for (const auto& p : transactions) {
         if (p.customerName == customerName) {
             found = true;
-            cout << left << setw(10) << p.paymentID
+            cout << left << setw(12) << p.paymentID
                 << setw(12) << p.bookingID
-                << setw(10) << p.bikeID
+                << setw(12) << p.bikeID
                 << setw(12) << fixed << setprecision(2) << p.paymentAmount
                 << setw(18) << p.paymentMethod
                 << setw(12) << p.paymentDate << "\n";
@@ -2396,19 +2390,19 @@ void DisplayAllPayments() {
     }
 
     cout << "\n========== ALL PAYMENTS (ADMIN) ==========\n";
-    cout << left << setw(10) << "ID"
+    cout << left << setw(12) << "PaymentID"
         << setw(12) << "Booking"
-        << setw(10) << "Bike"
+        << setw(12) << "Bike"
         << setw(20) << "Customer"
         << setw(12) << "Amount"
         << setw(18) << "Method"
         << setw(12) << "Date" << "\n";
-    cout << string(94, '-') << "\n";
+    cout << string(98, '-') << "\n";
 
     for (const auto& p : transactions) {
-        cout << left << setw(10) << p.paymentID
+        cout << left << setw(12) << p.paymentID
             << setw(12) << p.bookingID
-            << setw(10) << p.bikeID
+            << setw(12) << p.bikeID
             << setw(20) << p.customerName
             << setw(12) << fixed << setprecision(2) << p.paymentAmount
             << setw(18) << p.paymentMethod
@@ -2417,7 +2411,7 @@ void DisplayAllPayments() {
     waitForEnter();
 }
 
-void GenerateReceipt(int paymentID) {
+void GenerateReceipt(const string& paymentID) {
     for (const auto& p : transactions) {
         if (p.paymentID == paymentID) {
             cout << "\n========== RECEIPT ==========\n";
@@ -2437,7 +2431,7 @@ void GenerateReceipt(int paymentID) {
 }
 
 void SavePaymentToFile() {
-    ofstream out("payment.csv");
+    ofstream out(PAYMENT_FILE);
     if (!out) return;
     out << "PaymentID,BookingID,BikeID,CustomerName,Amount,Method,Date\n";
     for (const auto& p : transactions) {
@@ -2453,24 +2447,23 @@ void SavePaymentToFile() {
 }
 
 void LoadPaymentFromFile() {
-    ifstream in("payment.csv");
+    ifstream in(PAYMENT_FILE);
     if (!in) return;
     string line;
-    getline(in, line);
+    getline(in, line); // header
     while (getline(in, line)) {
         if (line.empty()) continue;
         stringstream ss(line);
         string token;
         Payment p;
-        getline(ss, token, ','); p.paymentID = stoi(token);
-        getline(ss, token, ','); p.bookingID = stoi(token);
-        getline(ss, token, ','); p.bikeID = stoi(token);
-        getline(ss, token, ','); p.customerName = token;
+        getline(ss, token, ','); p.paymentID = trim(token);
+        getline(ss, token, ','); p.bookingID = trim(token);
+        getline(ss, token, ','); p.bikeID = trim(token);
+        getline(ss, token, ','); p.customerName = trim(token);
         getline(ss, token, ','); p.paymentAmount = stod(token);
-        getline(ss, token, ','); p.paymentMethod = token;
-        getline(ss, token, ','); p.paymentDate = token;
+        getline(ss, token, ','); p.paymentMethod = trim(token);
+        getline(ss, token, ','); p.paymentDate = trim(token);
         transactions.push_back(p);
-        if (p.paymentID >= nextPaymentID) nextPaymentID = p.paymentID + 1;
     }
     in.close();
 }
@@ -2479,86 +2472,16 @@ void DisplayPaymentMenuForUser() {
     while (true) {
         clearScreen();
         cout << "========== PAYMENT MENU ==========\n";
-        cout << "1. Process Payment (manual)\n";
-        cout << "2. View My Payment History\n";
-        cout << "3. Generate Receipt\n";
-        cout << "4. Back to User Menu\n";
+        cout << "[1] View Payment History\n";
+        cout << "[2] Generate Receipt\n";
+        cout << "[0] Back to User Menu\n";
         cout << "Enter choice: ";
 
-        int choice = getValidOption(1, 4, "");
+        int choice = getValidOption(0, 2, "");
         if (choice == -1) continue;
 
         switch (choice) {
-        case 1: {
-            int bid, bike;
-            double hours, rate;
-            string name;
-            cout << "Booking ID: ";
-            string input;
-            getline(cin, input);
-            if (input.empty() || !all_of(input.begin(), input.end(), ::isdigit)) {
-                cout << "[X] Invalid Booking ID.\n";
-                waitForEnter();
-                break;
-            }
-            bid = stoi(input);
-            cout << "Bike ID: ";
-            getline(cin, input);
-            if (input.empty() || !all_of(input.begin(), input.end(), ::isdigit)) {
-                cout << "[X] Invalid Bike ID.\n";
-                waitForEnter();
-                break;
-            }
-            bike = stoi(input);
-            cout << "Rental hours: ";
-            getline(cin, input);
-            if (input.empty() || !all_of(input.begin(), input.end(), ::isdigit)) {
-                cout << "[X] Invalid hours.\n";
-                waitForEnter();
-                break;
-            }
-            hours = stod(input);
-            cout << "Base rate (RM/hour): ";
-            getline(cin, input);
-            if (input.empty()) {
-                cout << "[X] Invalid rate.\n";
-                waitForEnter();
-                break;
-            }
-            bool valid = true;
-            for (char c : input) {
-                if (!isdigit(static_cast<unsigned char>(c)) && c != '.') {
-                    valid = false; break;
-                }
-            }
-            if (!valid) {
-                cout << "[X] Invalid rate.\n";
-                waitForEnter();
-                break;
-            }
-            rate = stod(input);
-            cout << "Customer name: ";
-            getline(cin, name);
-            if (name.empty()) {
-                cout << "[X] Name cannot be empty.\n";
-                waitForEnter();
-                break;
-            }
-
-            Booking temp;
-            temp.bookingID = bid;
-            temp.bikeID = bike;
-            temp.duration = static_cast<int>(hours);
-            temp.customerID = "";
-            temp.status = "Active";
-
-            bool paid = ProcessPaymentForBooking(temp, hours, rate, name);
-            if (!paid)
-                cout << "Payment processing failed.\n";
-            waitForEnter();
-            break;
-        }
-        case 2:
+        case 1:
             if (currentCustomer.empty()) {
                 cout << "[X] No customer logged in.\n";
                 waitForEnter();
@@ -2567,22 +2490,21 @@ void DisplayPaymentMenuForUser() {
                 DisplayUserPaymentHistory(currentCustomer);
             }
             break;
-        case 3: {
-            int pid;
+        case 2: {
+            string pid;
             cout << "Enter Payment ID: ";
-            string input;
-            getline(cin, input);
-            if (input.empty() || !all_of(input.begin(), input.end(), ::isdigit)) {
-                cout << "[X] Invalid Payment ID.\n";
+            getline(cin, pid);
+            pid = trim(pid);
+            if (pid.empty()) {
+                cout << "[X] Payment ID cannot be empty.\n";
                 waitForEnter();
                 break;
             }
-            pid = stoi(input);
             GenerateReceipt(pid);
             waitForEnter();
             break;
         }
-        case 4:
+        case 0:
             cout << "Returning to User Menu.\n";
             waitForEnter();
             return;
@@ -2606,20 +2528,17 @@ int main() {
 
     vector<Account> users;
     vector<RepairReport> repairs;
+    vector<Bicycle> inventory;
+    vector<Booking> bookings;
+
     User_LoadFile(users);
     Repair_LoadFile(repairs);
-
-    vector<Bicycle> inventory;
-    int nextBikeID = 0;
-    LoadInventoryFromFile(inventory, nextBikeID);
-
-    vector<Booking> bookings;
+    LoadInventoryFromFile(inventory);
     LoadBookingsFromFile(bookings, BOOKING_FILE);
     SyncInventoryWithBookings(bookings, inventory);
-
     LoadPaymentFromFile();
 
-    Menu(admin, users, repairs, inventory, nextBikeID, bookings);
+    Menu(admin, users, repairs, inventory, bookings);
 
     SaveInventoryToFile(inventory);
     SaveBookingsToFile(bookings, BOOKING_FILE);
