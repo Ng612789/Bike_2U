@@ -37,7 +37,10 @@ const string BOOKING_FILE = "booking.csv";
 const string INVENTORY_FILE = "inventory.csv";
 const string PAYMENT_FILE = "payment.csv";
 
-const double HOURLY_RATE = 5.50;
+const double RATE_CITY = 3.00;
+const double RATE_MOUNTAIN = 5.00;
+const double RATE_ROAD = 2.50;
+const double RATE_ELECTRIC = 7.00;
 const int MAX_RENTAL_HOURS = 24;
 
 // ------------------------------------------------------------------
@@ -68,7 +71,7 @@ struct Bicycle {
     string type;
     string brand;
     double rentalRatePerHour;
-    bool isAvailable;
+    string status = "Available";
 };
 
 struct Booking {
@@ -158,7 +161,7 @@ void Repair_LoadFile(vector<RepairReport>& repairs);
 
 // Bicycle inventory functions
 void DisplayInventoryMenu(vector<Bicycle>& inventory, vector<Booking>& bookings);
-bool isBikeTypeValid(const string& type);
+bool isValidBikeType(const string& type);
 void AddBicycle(vector<Bicycle>& inventory);
 void UpdateBicycle(vector<Bicycle>& inventory, const vector<Booking>& bookings);
 void RemoveBicycle(vector<Bicycle>& inventory);
@@ -375,8 +378,8 @@ void adminMenu(vector<RepairReport>& repairs, vector<Account>& users,
         cout << indent << "===== ADMIN MENU =====\n";
         cout << indent << "[1] Customer Management\n";
         cout << indent << "[2] Repair Menu\n";
-        cout << indent << "[3] Bicycle Inventory\n";
-        cout << indent << "[4] View All Payments\n";
+        cout << indent << "[3] View Bicycle Inventory\n";
+        cout << indent << "[4] View All Transactions\n";
         cout << indent << "[0] Log out\n";
 
         int option = getValidOption(0, 4, indent);
@@ -1145,27 +1148,27 @@ void userProfile(vector<Account>& users, int currentIdx) {
 
     while (true) {
         clearScreen();
-        cout << indent << "===== USER PROFILE =====\n";
-        cout << indent << "ID          : " << user.accountID << "\n";
-        cout << indent << "Name        : " << user.name << "\n";
-        cout << indent << "Email       : " << user.email << "\n";
-        cout << indent << "Phone       : " << user.phone << "\n";
-        cout << indent << "Password    : ********\n\n";
-        cout << indent << "[1] Edit Name\n";
-        cout << indent << "[2] Edit Email\n";
-        cout << indent << "[3] Edit Phone\n";
-        cout << indent << "[4] Change Password\n";
-        cout << indent << "[5] Save\n";
-        cout << indent << "[0] Exit without saving\n";
+        cout << "===== USER PROFILE =====\n";
+        cout << "ID          : " << user.accountID << "\n";
+        cout << "Name        : " << user.name << "\n";
+        cout << "Email       : " << user.email << "\n";
+        cout << "Phone       : " << user.phone << "\n";
+        cout << "Password    : ********\n\n";
+        cout << "[1] Edit Name\n";
+        cout << "[2] Edit Email\n";
+        cout << "[3] Edit Phone\n";
+        cout << "[4] Change Password\n";
+        cout << "[5] Save\n";
+        cout << "[0] Exit without saving\n";
 
-        int option = getValidOption(0, 5, indent);
+        int option = getValidOption(0, 5);
         if (option == -1)
             continue;
 
         if (option == 0) {
             if (changed) {
                 while (true) {
-                    cout << indent << "Changes will not be saved. Confirm exit? (Y/N): ";
+                    cout << "Changes will not be saved. Confirm exit? (Y/N): ";
                     string confirm;
                     getline(cin, confirm);
                     if (confirm == "Y" || confirm == "y") {
@@ -1177,43 +1180,43 @@ void userProfile(vector<Account>& users, int currentIdx) {
                         break;
                     }
                     else {
-                        cout << indent << "[X] Invalid input. Please enter Y or N.\n";
+                        cout << "[X] Invalid input. Please enter Y or N.\n";
                         waitForEnter(indent);
                     }
                 }
             }
             else {
-                cout << indent << "No changes made.\n";
+                cout << "No changes made.\n";
                 waitForEnter(indent);
                 return;
             }
         }
         else if (option == 1) {
-            cout << indent << "New Name (leave empty to keep current): ";
+            cout << "New Name (leave empty to keep current): ";
             getline(cin, input);
             string trimmed = trim(input);
             if (trimmed.empty()) {
-                cout << indent << "Name unchanged (empty input).\n";
+                cout << "Name unchanged (empty input).\n";
                 waitForEnter(indent);
             }
             else if (trimmed != user.name) {
                 user.name = trimmed;
                 changed = true;
-                cout << indent << "Name updated.\n";
+                cout << "Name updated.\n";
                 waitForEnter(indent);
             }
             else {
-                cout << indent << "Name unchanged (same as current).\n";
+                cout << "Name unchanged (same as current).\n";
                 waitForEnter(indent);
             }
         }
         else if (option == 2) {
-            cout << indent << "New Email (leave empty to keep current): ";
+            cout << "New Email (leave empty to keep current): ";
             getline(cin, input);
             if (!input.empty()) {
                 string trimmed = trim(input);
                 if (!validateEmail(trimmed)) {
-                    cout << indent << "[X] Invalid email format.\n";
+                    cout << "[X] Invalid email format.\n";
                     waitForEnter(indent);
                     continue;
                 }
@@ -1225,22 +1228,22 @@ void userProfile(vector<Account>& users, int currentIdx) {
                     }
                 }
                 if (duplicate) {
-                    cout << indent << "[X] Email already registered by another user.\n";
+                    cout << "[X] Email already registered by another user.\n";
                     waitForEnter(indent);
                     continue;
                 }
                 user.email = trimmed;
                 changed = true;
-                cout << indent << "Email updated.\n";
+                cout << "Email updated.\n";
                 waitForEnter(indent);
             }
             else {
-                cout << indent << "Email unchanged.\n";
+                cout << "Email unchanged.\n";
                 waitForEnter(indent);
             }
         }
         else if (option == 3) {
-            cout << indent << "New Phone (leave empty to keep current): ";
+            cout << "New Phone (leave empty to keep current): ";
             getline(cin, input);
             if (!input.empty()) {
                 string trimmed = trim(input);
@@ -1251,55 +1254,55 @@ void userProfile(vector<Account>& users, int currentIdx) {
                 }
                 user.phone = trimmed;
                 changed = true;
-                cout << indent << "Phone updated.\n";
+                cout << "Phone updated.\n";
                 waitForEnter(indent);
             }
             else {
-                cout << indent << "Phone unchanged.\n";
+                cout << "Phone unchanged.\n";
                 waitForEnter(indent);
             }
         }
         else if (option == 4) {
-            cout << indent << "Current Password: ";
+            cout << "Current Password: ";
             string oldPwd;
             getline(cin, oldPwd);
             if (oldPwd != user.password) {
-                cout << indent << "[X] Incorrect current password.\n";
+                cout << "[X] Incorrect current password.\n";
                 waitForEnter(indent);
                 continue;
             }
 
-            cout << indent << "New Password: ";
+            cout << "New Password: ";
             string newPwd;
             getline(cin, newPwd);
             if (!validatePassword(newPwd)) {
-                cout << indent << "[X] Password must be " << MIN_PWD << "+ characters(include uppercase, lowercase, digit, and special.)\n";
+                cout << "[X] Password must be " << MIN_PWD << "+ characters(include uppercase, lowercase, digit, and special.)\n";
                 waitForEnter(indent);
                 continue;
             }
 
-            cout << indent << "Confirm New Password: ";
+            cout << "Confirm New Password: ";
             string confirm;
             getline(cin, confirm);
             if (newPwd != confirm) {
-                cout << indent << "[X] Passwords do not match.\n";
+                cout << "[X] Passwords do not match.\n";
                 waitForEnter(indent);
                 continue;
             }
             user.password = newPwd;
             changed = true;
-            cout << indent << "Password updated.\n";
+            cout << "Password updated.\n";
             waitForEnter(indent);
         }
         else if (option == 5) {
             if (changed) {
                 User_SaveFile(users);
-                cout << indent << "[^_^] Profile updated successfully.\n";
+                cout << "[^_^] Profile updated successfully.\n";
                 waitForEnter(indent);
                 return;
             }
             else {
-                cout << indent << "No changes to save.\n";
+                cout << "No changes to save.\n";
                 waitForEnter(indent);
                 return;
             }
@@ -1516,48 +1519,114 @@ void DisplayInventoryMenu(vector<Bicycle>& inventory, vector<Booking>& bookings)
         cout << "-----------------------------------\n";
         cout << "      Bicycle Inventory Menu       \n";
         cout << "-----------------------------------\n";
-        cout << "1. Add a new bicycle\n";
-        cout << "2. Update a bicycle\n";
-        cout << "3. Remove a bicycle\n";
-        cout << "4. Search for a bicycle\n";
-        cout << "5. View all bicycles\n";
+        cout << "1. View all bicycles\n";
+        cout << "2. Add new bicycle\n";
+        cout << "3. Update bicycle\n";
+        cout << "4. Remove bicycle\n";
+        cout << "5. Search by bicycle type\n";
         cout << "0. Return to main menu\n";
 
         int option = getValidOption(0, 5, "");
         if (option == -1) continue;
 
         switch (option) {
-        case 1: AddBicycle(inventory); break;
-        case 2: UpdateBicycle(inventory, bookings); break;
-        case 3: RemoveBicycle(inventory); break;
-        case 4: {
-            clearScreen();
-            cout << "===== SEARCH BICYCLE =====\n";
-            string id;
-            cout << "Enter bicycle ID to search: ";
-            getline(cin, id);
-            id = trim(id);
-            if (id.empty()) {
-                cout << "[X] Input cannot be empty.\n";
+        case 1: ViewBicycle(inventory); 
                 waitForEnter();
-                continue;
-            }
-            int idx = SearchBicycle(inventory, id);
-            if (idx != -1) {
-                cout << "\nFound:\n";
-                cout << "ID        : " << inventory[idx].bikeID << "\n";
-                cout << "Type      : " << inventory[idx].type << "\n";
-                cout << "Brand     : " << inventory[idx].brand << "\n";
-                cout << "Rate (RM/h): " << fixed << setprecision(2) << inventory[idx].rentalRatePerHour << "\n";
-                cout << "Available : " << (inventory[idx].isAvailable ? "Yes" : "No") << "\n";
-            }
-            else {
-                cout << "[X] Bicycle not found.\n";
-            }
-            waitForEnter();
             break;
+        case 2: AddBicycle(inventory); break;
+        case 3: UpdateBicycle(inventory, bookings); break;
+        case 4: RemoveBicycle(inventory); break;
+        case 5: {
+            while (true) {   // Loop until valid input or cancel
+                clearScreen();
+                cout << "===== SEARCH BY BICYCLE TYPE =====\n";
+                cout << "Available types:\n";
+                cout << "  1. city\n";
+                cout << "  2. mountain\n";
+                cout << "  3. road\n";
+                cout << "  4. electric\n";
+                cout << "Enter the number or type name (or 0 to cancel): ";
+
+                string input;
+                getline(cin, input);
+                input = trim(input);
+
+                if (input == "0") {
+                    cout << "Search cancelled.\n";
+                    waitForEnter();
+                    break;       
+                }
+
+                string selectedType;
+                bool isNumber = true;
+                for (char c : input) {
+                    if (!isdigit(static_cast<unsigned char>(c))) {
+                        isNumber = false;
+                        break;
+                    }
+                }
+
+                if (isNumber) {
+                    int num = stoi(input);
+                    switch (num) {
+                    case 1: selectedType = "city"; break;
+                    case 2: selectedType = "mountain"; break;
+                    case 3: selectedType = "road"; break;
+                    case 4: selectedType = "electric"; break;
+                    default:
+                        cout << "[X] Invalid number. Please choose 1-4.\n";
+                        waitForEnter();
+                        continue;  
+                    }
+                }
+                else {
+                    string lowerInput = input;
+                    transform(lowerInput.begin(), lowerInput.end(), lowerInput.begin(), ::tolower);
+                    if (isValidBikeType(lowerInput)) {
+                        selectedType = lowerInput;
+                    }
+                    else {
+                        cout << "[X] Invalid type. Only city, mountain, road, electric are allowed.\n";
+                        waitForEnter();
+                        continue;   
+                    }
+                }
+
+                vector<Bicycle> matches;
+                for (const auto& bike : inventory) {
+                    string bikeTypeLower = bike.type;
+                    transform(bikeTypeLower.begin(), bikeTypeLower.end(), bikeTypeLower.begin(), ::tolower);
+                    if (bikeTypeLower == selectedType) {
+                        matches.push_back(bike);
+                    }
+                }
+
+                if (matches.empty()) {
+                    cout << "\nNo bicycles found of type \"" << selectedType << "\".\n";
+                    waitForEnter();
+                    break;   
+                }
+
+                cout << "\n----- Bicycles of type \"" << selectedType << "\" -----\n";
+                cout << left << setw(12) << "ID"
+                    << setw(15) << "Type"
+                    << setw(15) << "Brand"
+                    << setw(15) << "Rate (RM/h)"
+                    << setw(12) << "Status" << "\n";
+                cout << string(69, '-') << "\n";
+
+                for (const auto& bike : matches) {
+                    cout << left << setw(12) << bike.bikeID
+                        << setw(15) << bike.type
+                        << setw(15) << bike.brand
+                        << setw(15) << fixed << setprecision(2) << bike.rentalRatePerHour
+                        << setw(12) << bike.status << "\n";
+                }
+                waitForEnter();
+                break;   
+            }
+            break;   
         }
-        case 5: ViewBicycle(inventory); break;
         case 0:
             if (confirmAction("Are you sure want to go back?")) {
                 cout << "Returning to admin menu...\n";
@@ -1594,9 +1663,10 @@ void AddBicycle(vector<Bicycle>& inventory) {
             cout << "[X] Type cannot be empty.\n";
             continue;
         }
-        if (isValidBikeType(typeInput)) {
-            transform(typeInput.begin(), typeInput.end(), typeInput.begin(), ::tolower);
-            bike.type = typeInput;
+        string lowerType = typeInput;
+        transform(lowerType.begin(), lowerType.end(), lowerType.begin(), ::tolower);
+        if (isValidBikeType(lowerType)) {
+            bike.type = lowerType;
             break;
         }
         cout << "[X] Invalid type. Allowed types: city, mountain, road, electric.\n";
@@ -1610,60 +1680,41 @@ void AddBicycle(vector<Bicycle>& inventory) {
         return;
     }
 
-    double rate;
-    while (true) {
-        cout << "Enter Rental Rate Per Hour (RM/h): ";
-        string input;
-        getline(cin, input);
-        if (input.empty()) {
-            cout << "[X] Rate cannot be empty.\n";
-            continue;
-        }
+    if (bike.type == "city")
+        bike.rentalRatePerHour = RATE_CITY;
+    else if (bike.type == "mountain")
+        bike.rentalRatePerHour = RATE_MOUNTAIN;
+    else if (bike.type == "road")
+        bike.rentalRatePerHour = RATE_ROAD;
+    else if (bike.type == "electric")
+        bike.rentalRatePerHour = RATE_ELECTRIC;
+    else
+        bike.rentalRatePerHour = 5.00; 
 
-        bool valid = true;
-        bool hasDecimal = false;
-        for (char c : input) {
-            if (c == '.') {
-                if (hasDecimal) { valid = false; break; }
-                hasDecimal = true;
-            }
-            else if (!isdigit(static_cast<unsigned char>(c))) {
-                valid = false;
-                break;
-            }
-        }
-        if (!valid) {
-            cout << "[X] Please enter a valid positive number.\n";
-            continue;
-        }
-
-        rate = stod(input);
-
-        if (rate < 1.0 || rate > 100.0) {
-            cout << "[X] Rate must be between 1.0 and 100.0.\n";
-            continue;
-        }
-
-        break;
-    }
-    bike.rentalRatePerHour = rate;
-    bike.isAvailable = true;
+    bike.status = "Available";   
 
     inventory.push_back(bike);
-    cout << "[^_^] Bicycle added successfully with ID: " << bike.bikeID << "\n";
+    cout << "\nBicycle added successfully with ID: " << bike.bikeID << "\n";
+    cout << "Type: " << bike.type << ", Rate: RM " << fixed << setprecision(2) << bike.rentalRatePerHour << "/hour\n";
     waitForEnter();
 }
 
 void UpdateBicycle(vector<Bicycle>& inventory, const vector<Booking>& bookings) {
     clearScreen();
-    cout << "===== UPDATE BICYCLE =====\n";
+    ViewBicycle(inventory);
+    cout << "\n===== UPDATE BICYCLE =====\n";
 
     string id;
-    cout << "Enter the Bicycle ID to update: ";
+    cout << "Enter the Bicycle ID to update (or 0 to cancel): ";
     getline(cin, id);
     id = trim(id);
     if (id.empty()) {
         cout << "[X] Input cannot be empty.\n";
+        waitForEnter();
+        return;
+    }
+    if (id == "0") {
+        cout << "Update cancelled.\n";
         waitForEnter();
         return;
     }
@@ -1678,13 +1729,13 @@ void UpdateBicycle(vector<Bicycle>& inventory, const vector<Booking>& bookings) 
     while (true) {
         clearScreen();
         cout << "--- Update Menu for ID " << inventory[idx].bikeID << " ---\n";
-        cout << "1. Type      (current: " << inventory[idx].type << ")\n";
-        cout << "2. Brand     (current: " << inventory[idx].brand << ")\n";
-        cout << "3. Rate      (current: RM" << fixed << setprecision(2) << inventory[idx].rentalRatePerHour << ")\n";
-        cout << "4. Availability (current: " << (inventory[idx].isAvailable ? "Available" : "Not Available") << ")\n";
-        cout << "5. Return to Inventory Menu\n";
+        cout << "[1] Type      (current: " << inventory[idx].type << ")\n";
+        cout << "[2] Brand     (current: " << inventory[idx].brand << ")\n";
+        cout << "[3] Rate      (current: RM" << fixed << setprecision(2) << inventory[idx].rentalRatePerHour << ")\n";
+        cout << "[4] Status    (current: " << inventory[idx].status << ")\n";  
+        cout << "[0] Return to Inventory Menu\n";
 
-        int subOption = getValidOption(1, 5, "");
+        int subOption = getValidOption(0, 4, "");
         if (subOption == -1) continue;
 
         switch (subOption) {
@@ -1696,7 +1747,12 @@ void UpdateBicycle(vector<Bicycle>& inventory, const vector<Booking>& bookings) 
                 waitForEnter();
             }
             else {
-                cout << "Type updated.\n";
+                if (isValidBikeType(inventory[idx].type)) {
+                    cout << "Type updated.\n";
+                }
+                else {
+                    cout << "[X] Invalid type. Keeping old value.\n";
+                }
                 waitForEnter();
             }
             break;
@@ -1742,12 +1798,10 @@ void UpdateBicycle(vector<Bicycle>& inventory, const vector<Booking>& bookings) 
                 }
 
                 newRate = stod(rateInput);
-
                 if (newRate < 1.0 || newRate > 100.0) {
                     cout << "[X] Rate must be between 1.0 and 100.0.\n";
                     continue;
                 }
-
                 break;
             }
             inventory[idx].rentalRatePerHour = newRate;
@@ -1756,35 +1810,49 @@ void UpdateBicycle(vector<Bicycle>& inventory, const vector<Booking>& bookings) 
             break;
         }
         case 4: {
-            bool hasActive = false;
-            for (const auto& book : bookings) {
-                if (book.bikeID == inventory[idx].bikeID && book.status == "Active") {
-                    hasActive = true;
-                    break;
+            cout << "Select new status:\n";
+            cout << "1. Available\n";
+            cout << "2. Rented\n";
+            cout << "3. Repair\n";
+            cout << "Enter choice: ";
+            string choice;
+            getline(cin, choice);
+            if (choice == "1") {
+                bool hasActive = false;
+                for (const auto& book : bookings) {
+                    if (book.bikeID == inventory[idx].bikeID && book.status == "Active") {
+                        hasActive = true;
+                        break;
+                    }
+                }
+                if (hasActive) {
+                    cout << "[X] Cannot set to Available because there is an active booking for this bicycle.\n";
+                }
+                else {
+                    inventory[idx].status = "Available";
+                    cout << "Status updated to Available.\n";
                 }
             }
-
-            cout << "Enter 1 for Available, 0 for Not Available: ";
-            string statusInput;
-            getline(cin, statusInput);
-            if (statusInput.empty() || (statusInput != "0" && statusInput != "1")) {
-                cout << "[X] Invalid input. Please enter 0 or 1.\n";
-                waitForEnter();
-                break;
+            else if (choice == "2") {
+                inventory[idx].status = "Rented";
+                cout << "Status updated to Rented.\n";
             }
-            bool newAvailability = (statusInput == "1");
-            if (newAvailability && hasActive) {
-                cout << "[X] Cannot set availability to Available because there is an active booking for this bicycle.\n";
-                waitForEnter();
-                break;
+            else if (choice == "3") {
+                inventory[idx].status = "Repair";
+                cout << "Status updated to Repair.\n";
             }
-            inventory[idx].isAvailable = newAvailability;
-            cout << "Availability updated.\n";
+            else {
+                cout << "[X] Invalid choice.\n";
+            }
             waitForEnter();
             break;
         }
-        case 5:
-            cout << "Returning to inventory menu.\n";
+        case 0:
+            if (confirmAction("Are you sure want to go back?")) {
+                cout << "Returning to inventory menu.\n";
+                waitForEnter();
+                return;
+            }
             waitForEnter();
             return;
         }
@@ -1793,14 +1861,20 @@ void UpdateBicycle(vector<Bicycle>& inventory, const vector<Booking>& bookings) 
 
 void RemoveBicycle(vector<Bicycle>& inventory) {
     clearScreen();
-    cout << "===== REMOVE BICYCLE =====\n";
+    ViewBicycle(inventory);
+    cout << "\n===== REMOVE BICYCLE =====\n";
 
     string id;
-    cout << "Enter bicycle ID to remove: ";
+    cout << "Enter bicycle ID to remove (or 0 to cancel): ";
     getline(cin, id);
     id = trim(id);
     if (id.empty()) {
         cout << "[X] Input cannot be empty.\n";
+        waitForEnter();
+        return;
+    }
+    if (id == "0") {
+        cout << "Removal cancelled.\n";
         waitForEnter();
         return;
     }
@@ -1812,7 +1886,7 @@ void RemoveBicycle(vector<Bicycle>& inventory) {
         return;
     }
 
-    if (!inventory[idx].isAvailable) {
+    if (inventory[idx].status == "Rented") {
         cout << "[X] Cannot remove a bicycle that is currently rented.\n";
         waitForEnter();
         return;
@@ -1828,7 +1902,7 @@ void RemoveBicycle(vector<Bicycle>& inventory) {
     }
 
     inventory.erase(inventory.begin() + idx);
-    cout << "[^_^] Bicycle removed successfully.\n";
+    cout << "\nBicycle removed successfully.\n";
     waitForEnter();
 }
 
@@ -1844,7 +1918,6 @@ void ViewBicycle(const vector<Bicycle>& inventory) {
     clearScreen();
     if (inventory.empty()) {
         cout << "No bicycles in inventory.\n";
-        waitForEnter();
         return;
     }
 
@@ -1853,17 +1926,16 @@ void ViewBicycle(const vector<Bicycle>& inventory) {
         << setw(15) << "Type"
         << setw(15) << "Brand"
         << setw(15) << "Rate (RM/h)"
-        << setw(12) << "Available" << "\n";
+        << setw(12) << "Status" << "\n";   
     cout << string(69, '-') << "\n";
 
-    for (size_t i = 0; i < inventory.size(); ++i) {
-        cout << left << setw(12) << inventory[i].bikeID
-            << setw(15) << inventory[i].type
-            << setw(15) << inventory[i].brand
-            << setw(15) << fixed << setprecision(2) << inventory[i].rentalRatePerHour
-            << setw(12) << (inventory[i].isAvailable ? "Yes" : "No") << "\n";
+    for (const auto& bike : inventory) {
+        cout << left << setw(12) << bike.bikeID
+            << setw(15) << bike.type
+            << setw(15) << bike.brand
+            << setw(15) << fixed << setprecision(2) << bike.rentalRatePerHour
+            << setw(12) << bike.status << "\n";   
     }
-    waitForEnter();
 }
 
 void SaveInventoryToFile(const vector<Bicycle>& inventory) {
@@ -1878,44 +1950,33 @@ void SaveInventoryToFile(const vector<Bicycle>& inventory) {
             << bike.type << ","
             << bike.brand << ","
             << bike.rentalRatePerHour << ","
-            << (bike.isAvailable ? 1 : 0) << "\n";
+            << bike.status << "\n";
     }
-
     outFile.close();
 }
 
 void LoadInventoryFromFile(vector<Bicycle>& inventory) {
     ifstream inFile(INVENTORY_FILE);
-    if (!inFile) {
-        return;
-    }
+    if (!inFile) return;
 
+    inventory.clear();
     string line;
     while (getline(inFile, line)) {
         if (line.empty()) continue;
-
         stringstream ss(line);
         string token;
         Bicycle bike;
 
-        getline(ss, token, ',');
-        bike.bikeID = trim(token);
+        getline(ss, token, ','); bike.bikeID = trim(token);
+        getline(ss, token, ','); bike.type = trim(token);
+        getline(ss, token, ','); bike.brand = trim(token);
+        getline(ss, token, ','); bike.rentalRatePerHour = stod(token);
+        getline(ss, token, ','); bike.status = trim(token);   
 
-        getline(ss, token, ',');
-        bike.type = trim(token);
-
-        getline(ss, token, ',');
-        bike.brand = trim(token);
-
-        getline(ss, token, ',');
-        bike.rentalRatePerHour = stod(token);
-
-        getline(ss, token, ',');
-        bike.isAvailable = (stoi(token) == 1);
+        if (bike.status.empty()) bike.status = "Available";
 
         inventory.push_back(bike);
     }
-
     inFile.close();
 }
 
@@ -1931,7 +1992,6 @@ void rentalBookingMenu(vector<Booking>& bookings, vector<Bicycle>& inventory, co
         cout << "[2] View Active Bookings\n";
         cout << "[3] Return a Bicycle\n";
         cout << "[0] Back to User Menu\n";
-        cout << "Enter your choice: ";
 
         int option = getValidOption(0, 3, "");
         if (option == -1) continue;
@@ -1968,13 +2028,16 @@ bool hasActiveBookingForBike(const string& bikeID, const vector<Booking>& bookin
 
 void SyncInventoryWithBookings(const vector<Booking>& bookings, vector<Bicycle>& inventory) {
     for (auto& bike : inventory) {
-        bike.isAvailable = true;
+        if (bike.status != "Repair") {
+            bike.status = "Available";
+        }
     }
+    // Active bookings → set to "Rented"
     for (const auto& b : bookings) {
         if (b.status == "Active") {
             for (auto& bike : inventory) {
-                if (bike.bikeID == b.bikeID) {
-                    bike.isAvailable = false;
+                if (bike.bikeID == b.bikeID && bike.status != "Repair") {
+                    bike.status = "Rented";
                     break;
                 }
             }
@@ -1985,7 +2048,7 @@ void SyncInventoryWithBookings(const vector<Booking>& bookings, vector<Bicycle>&
 bool checkAvailability(const string& bikeID, const vector<Bicycle>& inventory) {
     for (const auto& bike : inventory) {
         if (bike.bikeID == bikeID) {
-            return bike.isAvailable;
+            return bike.status == "Available";   
         }
     }
     return false;
@@ -2069,8 +2132,8 @@ void CreateBooking(vector<Booking>& bookings, vector<Bicycle>& inventory, const 
     }
 
     for (auto& bike : inventory) {
-        if (bike.bikeID == bikeID) {
-            bike.isAvailable = false;
+        if (bike.bikeID == tempBooking.bikeID) {
+            bike.status = "Available";
             break;
         }
     }
@@ -2139,7 +2202,7 @@ void ReturnBicycle(vector<Booking>& bookings, vector<Bicycle>& inventory) {
         if (booking.bookingID == bookingID && booking.status == "Active") {
             for (auto& bike : inventory) {
                 if (bike.bikeID == booking.bikeID) {
-                    bike.isAvailable = true;
+                    bike.status = "Available";
                     break;
                 }
             }
@@ -2475,7 +2538,6 @@ void DisplayPaymentMenuForUser() {
         cout << "[1] View Payment History\n";
         cout << "[2] Generate Receipt\n";
         cout << "[0] Back to User Menu\n";
-        cout << "Enter choice: ";
 
         int choice = getValidOption(0, 2, "");
         if (choice == -1) continue;
