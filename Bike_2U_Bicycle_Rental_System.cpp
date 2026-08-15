@@ -185,12 +185,11 @@ bool hasActiveBookingForBike(const string& bikeID, const vector<Booking>& bookin
 void LoadPaymentFromFile();
 void SavePaymentToFile();
 bool ProcessPaymentForBooking(const Booking& booking, double rentalHours, double baseRate, const string& customerName);
-void DisplayUserPaymentHistory(const string& customerName);
-void DisplayAllPayments();
+void DisplayUserPaymentHistory(const string& customerName, const vector<Booking>& bookings);
+void DisplayAllPayments(const vector<Booking>& bookings);
 void GenerateReceipt(const string& paymentID);
 bool isValidCardNumber(const string& cardNum);
 bool isValidCVV(const string& cvv);
-void DisplayPaymentMenuForUser();
 
 // ------------------------------------------------------------------
 // Function Definitions
@@ -396,7 +395,7 @@ void adminMenu(vector<RepairReport>& repairs, vector<Account>& users,
             DisplayInventoryMenu(inventory, bookings);
             break;
         case 4:
-            DisplayAllPayments();
+            DisplayAllPayments(bookings);
             break;
         case 0:
             if (confirmAction("Are you sure want to log out?"))
@@ -448,7 +447,7 @@ void userMenu(vector<Account>& users, int currentIdx, vector<RepairReport>& repa
         clearScreen();
         cout << indent << "===== USER MENU =====\n";
         cout << indent << "[1] Bicycle Rental Booking\n";
-        cout << indent << "[2] Payment\n";
+        cout << indent << "[2] View Payment History\n";
         cout << indent << "[3] Repair Service\n";
         cout << indent << "[4] Profile\n";
         cout << indent << "[0] Log out\n";
@@ -462,7 +461,13 @@ void userMenu(vector<Account>& users, int currentIdx, vector<RepairReport>& repa
             rentalBookingMenu(bookings, inventory, users[currentIdx].accountID, users[currentIdx].name);
             break;
         case 2:
-            DisplayPaymentMenuForUser();
+            if (currentCustomer.empty()) {
+                cout << "[X] No customer logged in.\n";
+                waitForEnter();
+            }
+            else {
+                DisplayUserPaymentHistory(currentCustomer, bookings);
+            }
             break;
         case 3:
             repairService(users[currentIdx], repairs);
@@ -1629,8 +1634,6 @@ void DisplayInventoryMenu(vector<Bicycle>& inventory, vector<Booking>& bookings)
         }
         case 0:
             if (confirmAction("Are you sure want to go back?")) {
-                cout << "Returning to admin menu...\n";
-                waitForEnter();
                 return;
             }
             break;
@@ -2334,7 +2337,7 @@ bool ProcessPaymentForBooking(const Booking& booking, double rentalHours, double
         }
         paid = stod(input);
         if (paid < total) {
-            cout << "[X] Insufficient. Must be at least RM " << total << "\n";
+            cout << "[X] Insufficient. Must enter at least RM " << total << "\n";
         }
         else {
             break;
@@ -2405,12 +2408,12 @@ bool ProcessPaymentForBooking(const Booking& booking, double rentalHours, double
     transactions.push_back(newP);
     SavePaymentToFile();
 
-    cout << "\n[^_^] Payment successful! Payment ID: " << newP.paymentID << "\n";
+    cout << "\nPayment successful! Payment ID: " << newP.paymentID << "\n";
     GenerateReceipt(newP.paymentID);
     return true;
 }
 
-void DisplayUserPaymentHistory(const string& customerName) {
+void DisplayUserPaymentHistory(const string& customerName, const vector<Booking>& bookings) {
     clearScreen();
     if (transactions.empty()) {
         cout << "No payment records found.\n";
@@ -2423,17 +2426,27 @@ void DisplayUserPaymentHistory(const string& customerName) {
     cout << left << setw(12) << "PaymentID"
         << setw(12) << "Booking"
         << setw(12) << "Bike"
+        << setw(10) << "Hours"          
         << setw(12) << "Amount"
         << setw(18) << "Method"
         << setw(12) << "Date" << "\n";
-    cout << string(78, '-') << "\n";
+    cout << string(88, '-') << "\n";   
 
     for (const auto& p : transactions) {
         if (p.customerName == customerName) {
+            string durationStr = "-";
+            for (const auto& b : bookings) {
+                if (b.bookingID == p.bookingID) {
+                    durationStr = to_string(b.duration) + "h";
+                    break;
+                }
+            }
+
             found = true;
             cout << left << setw(12) << p.paymentID
                 << setw(12) << p.bookingID
                 << setw(12) << p.bikeID
+                << setw(10) << durationStr
                 << setw(12) << fixed << setprecision(2) << p.paymentAmount
                 << setw(18) << p.paymentMethod
                 << setw(12) << p.paymentDate << "\n";
@@ -2444,7 +2457,7 @@ void DisplayUserPaymentHistory(const string& customerName) {
     waitForEnter();
 }
 
-void DisplayAllPayments() {
+void DisplayAllPayments(const vector<Booking>& bookings) {
     clearScreen();
     if (transactions.empty()) {
         cout << "No payment records found.\n";
@@ -2452,21 +2465,31 @@ void DisplayAllPayments() {
         return;
     }
 
-    cout << "\n========== ALL PAYMENTS (ADMIN) ==========\n";
+    cout << "\n========== ALL TRANSACTIONS ==========\n";
     cout << left << setw(12) << "PaymentID"
         << setw(12) << "Booking"
         << setw(12) << "Bike"
         << setw(20) << "Customer"
+        << setw(10) << "Hours"          
         << setw(12) << "Amount"
         << setw(18) << "Method"
         << setw(12) << "Date" << "\n";
-    cout << string(98, '-') << "\n";
+    cout << string(108, '-') << "\n";    
 
     for (const auto& p : transactions) {
+        string durationStr = "-";
+        for (const auto& b : bookings) {
+            if (b.bookingID == p.bookingID) {
+                durationStr = to_string(b.duration) + "h";
+                break;
+            }
+        }
+
         cout << left << setw(12) << p.paymentID
             << setw(12) << p.bookingID
             << setw(12) << p.bikeID
             << setw(20) << p.customerName
+            << setw(10) << durationStr
             << setw(12) << fixed << setprecision(2) << p.paymentAmount
             << setw(18) << p.paymentMethod
             << setw(12) << p.paymentDate << "\n";
@@ -2531,48 +2554,6 @@ void LoadPaymentFromFile() {
     in.close();
 }
 
-void DisplayPaymentMenuForUser() {
-    while (true) {
-        clearScreen();
-        cout << "========== PAYMENT MENU ==========\n";
-        cout << "[1] View Payment History\n";
-        cout << "[2] Generate Receipt\n";
-        cout << "[0] Back to User Menu\n";
-
-        int choice = getValidOption(0, 2, "");
-        if (choice == -1) continue;
-
-        switch (choice) {
-        case 1:
-            if (currentCustomer.empty()) {
-                cout << "[X] No customer logged in.\n";
-                waitForEnter();
-            }
-            else {
-                DisplayUserPaymentHistory(currentCustomer);
-            }
-            break;
-        case 2: {
-            string pid;
-            cout << "Enter Payment ID: ";
-            getline(cin, pid);
-            pid = trim(pid);
-            if (pid.empty()) {
-                cout << "[X] Payment ID cannot be empty.\n";
-                waitForEnter();
-                break;
-            }
-            GenerateReceipt(pid);
-            waitForEnter();
-            break;
-        }
-        case 0:
-            cout << "Returning to User Menu.\n";
-            waitForEnter();
-            return;
-        }
-    }
-}
 
 // ==================================================================
 // MAIN
