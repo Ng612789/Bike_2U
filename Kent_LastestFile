@@ -144,6 +144,7 @@ void registerMenu(vector<Account>& users, vector<RepairReport>& repairs, vector<
 void adminRepairServiceMenu(vector<RepairReport>& repairs);
 void userMenu(vector<Account>& users, int currentIdx, vector<RepairReport>& repairs, vector<Bicycle>& inventory, vector<Booking>& bookings);
 void accountManagementMenu(vector<RepairReport>& repairs, vector<Account>& users);
+void changeMembership(vector<Account>& users, int currentIdx);
 
 int getValidOption(int minVal, int maxVal, const string& indent = "");
 bool confirmAction(const string& message);
@@ -196,10 +197,11 @@ int SearchBicycle(const vector<Bicycle>& inventory, const string& bikeID);
 void ViewBicycle(const vector<Bicycle>& inventory);
 void SaveInventoryToFile(const vector<Bicycle>& inventory);
 void LoadInventoryFromFile(vector<Bicycle>& inventory);
-string getStationFromUser(bool allowCancel = false);
+string getStationFromUser(bool allowCancel = false, const string& purpose = "pickup");
 
 // Rental booking functions
 void CreateBooking(vector<Booking>& bookings, vector<Bicycle>& inventory,
+    vector<Account>& users, int currentIdx,
     const string& customerID, const string& customerName,
     const string& membershipType, int discount);
 void ViewMyBookings(const vector<Booking>& bookings, const string& customerID);
@@ -260,6 +262,9 @@ string getYear(const string& date);
 
 double hoursDifference(const string& date1, const string& time1,
     const string& date2, const string& time2);
+double roundToTwo(double value) {
+    return round(value * 100) / 100;
+}
 
 // ------------------------------------------------------------------
 // Function Definitions
@@ -469,7 +474,9 @@ void adminMenu(vector<RepairReport>& repairs, vector<Account>& users, vector<Bic
     const string indent = string(0, ' ');
     while (true) {
         clearScreen();
-        cout << indent << "===== ADMIN MENU =====\n";
+        cout << indent << "==============================\n";
+        cout << indent << "          ADMIN MENU\n";
+        cout << indent << "==============================\n";
         cout << indent << "[1] View Customer Details\n";
         cout << indent << "[2] View Reported Issues\n";
         cout << indent << "[3] View Bicycle Inventory\n";
@@ -564,6 +571,7 @@ void userMenu(vector<Account>& users, int currentIdx, vector<RepairReport>& repa
         switch (option) {
         case 1:
             CreateBooking(bookings, inventory,
+                users, currentIdx,
                 users[currentIdx].accountID,
                 users[currentIdx].name,
                 users[currentIdx].membershipType,
@@ -613,9 +621,10 @@ void membershipManagement(vector<Account>& users, int currentIdx) {
         cout << "[1] View Membership Details\n";
         cout << "[2] Register Membership\n";
         cout << "[3] Renew Membership\n";
+        cout << "[4] Change Membership Type\n";   // new option
         cout << "[0] Back\n";
         cout << "====================================\n";
-        choice = getValidOption(0, 3, "");
+        choice = getValidOption(0, 4, "");   // range now 0-4
         if (choice == -1) continue;
 
         switch (choice) {
@@ -628,10 +637,113 @@ void membershipManagement(vector<Account>& users, int currentIdx) {
         case 3:
             renewMembership(users, currentIdx);
             break;
+        case 4:
+            changeMembership(users, currentIdx);   // new case
+            break;
         case 0:
             break;
         }
     } while (choice != 0);
+}
+
+void changeMembership(vector<Account>& users, int currentIdx) {
+    clearScreen();
+    Account& user = users[currentIdx];
+
+    // Must have an active membership
+    if (user.membershipType == "None" || user.membershipType.empty()) {
+        cout << "You don't have a membership. Please register first.\n";
+        waitForEnter();
+        return;
+    }
+    if (user.membershipStatus != "Active") {
+        cout << "Your membership has expired. Please renew before changing type.\n";
+        waitForEnter();
+        return;
+    }
+
+    cout << "========================================\n";
+    cout << "       CHANGE MEMBERSHIP TYPE\n";
+    cout << "========================================\n";
+    cout << "Current Type : " << user.membershipType << "\n";
+    cout << "Current Fee  : RM " << fixed << setprecision(2) << user.annualFee << "\n";
+    cout << "Discount     : " << user.discount << "%\n\n";
+
+    cout << "Select new membership type:\n";
+    cout << "  [1] Bronze  (2% discount, RM50/year)\n";
+    cout << "  [2] Silver  (4% discount, RM100/year)\n";
+    cout << "  [3] Gold    (6% discount, RM150/year)\n";
+    cout << "  [0] Cancel\n";
+
+    int choice = getValidOption(0, 3, "");
+    if (choice == 0) {
+        cout << "Change cancelled.\n";
+        waitForEnter();
+        return;
+    }
+
+    // Determine new type details
+    string newType;
+    int newDiscount;
+    double newFee;
+    switch (choice) {
+    case 1: newType = "Bronze"; newDiscount = 2; newFee = 50.00; break;
+    case 2: newType = "Silver"; newDiscount = 4; newFee = 100.00; break;
+    case 3: newType = "Gold";   newDiscount = 6; newFee = 150.00; break;
+    }
+
+    // If same as current, cancel
+    if (newType == user.membershipType) {
+        cout << "You are already a " << newType << " member. No change needed.\n";
+        waitForEnter();
+        return;
+    }
+
+    double feeDifference = newFee - user.annualFee;
+    if (feeDifference > 0) {
+        // Upgrade – charge the difference
+        cout << "\nUpgrading to " << newType << " costs an additional RM "
+            << fixed << setprecision(2) << feeDifference << ".\n";
+        if (!confirmAction("Proceed with payment?")) {
+            cout << "Change cancelled.\n";
+            waitForEnter();
+            return;
+        }
+
+        string method;
+        if (!processMembershipPayment(feeDifference, method)) {
+            cout << "Payment failed or cancelled. Change not applied.\n";
+            waitForEnter();
+            return;
+        }
+        cout << "Payment successful.\n";
+    }
+    else if (feeDifference < 0) {
+        // Downgrade – no refund, just change type
+        cout << "\nDowngrading to " << newType << " (no refund for the difference).\n";
+        if (!confirmAction("Confirm downgrade?")) {
+            cout << "Change cancelled.\n";
+            waitForEnter();
+            return;
+        }
+    }
+
+    // Apply the change
+    user.membershipType = newType;
+    user.discount = newDiscount;
+    user.annualFee = newFee;
+    // Keep expiry date unchanged
+
+    User_SaveFile(users);
+    clearScreen();
+    cout << "\n========================================\n";
+    cout << "     MEMBERSHIP TYPE CHANGED!\n";
+    cout << "========================================\n";
+    cout << "You are now a " << newType << " member.\n";
+    cout << "New discount: " << newDiscount << "%\n";
+    cout << "Expiry date remains: " << user.expiryDate << "\n";
+    cout << "========================================\n";
+    waitForEnter();
 }
 
 // ---------- Date Utilities for Membership ----------
@@ -911,7 +1023,9 @@ bool processMembershipPayment(double amount, string& method) {
             else valid = true;
         } while (!valid);
 
-        cout << "Card details validated. Processing...\n";
+        cout << "Payment is confirmed.\n";
+        waitForEnter();   // pause before clearing
+        clearScreen();    // clear screen for next step
         method = (choice == 1) ? "Debit Card" : "Credit Card";
     }
     else if (choice == 3) {
@@ -943,6 +1057,7 @@ bool processMembershipPayment(double amount, string& method) {
     cout << "Method      : " << method << "\n";
     cout << "========================================\n";
     waitForEnter();
+    clearScreen();
     return true;
 }
 
@@ -1209,7 +1324,9 @@ void repairService(const Account& user, vector<RepairReport>& repairs, const vec
     }
 
     clearScreen();
-    cout << "===== REPAIR SERVICE =====\n";
+    cout << "==============================\n";
+    cout << "       REPAIR SERVICE\n";
+    cout << "==============================\n";
     cout << "\nSelect the bicycle you want to report damage for:\n";
     for (size_t i = 0; i < bikeIDs.size(); ++i) {
         cout << "  [" << i + 1 << "] Bike ID: " << bikeIDs[i] << "\n";
@@ -1359,7 +1476,9 @@ void repairService(const Account& user, vector<RepairReport>& repairs, const vec
     string selectedStation;
     while (true) {
         clearScreen();
-        cout << "===== SELECT BICYCLE LOCATION =====\n";
+        cout << "====================================\n";
+        cout << "       SELECT BICYCLE LOCATION\n";
+        cout << "====================================\n";
         cout << "\nWhere is the bicycle currently located? (for repair pickup)\n";
         for (size_t i = 0; i < PENANG_STATIONS.size(); ++i) {
             cout << "  [" << (i + 1) << "] " << PENANG_STATIONS[i] << "\n";
@@ -1404,7 +1523,9 @@ void repairService(const Account& user, vector<RepairReport>& repairs, const vec
     bool submitted = false;
     while (attempts < 3) {
         clearScreen();
-        cout << "===== REPAIR REPORT SUMMARY =====\n";
+        cout << "==================================\n";
+        cout << "       REPAIR REPORT SUMMARY\n";
+        cout << "==================================\n";
         cout << "ID          : " << user.accountID << "\n";
         cout << "Name        : " << user.name << "\n";
         cout << "Bicycle ID  : " << selectedBikeID << "\n";
@@ -2295,27 +2416,42 @@ bool isDouble(const string& s) {
     return true;
 }
 
-string getStationFromUser(bool allowCancel) {
+string getStationFromUser(bool allowCancel, const string& purpose) {
     while (true) {
+        clearScreen(); // Refresh the screen each time
+
         cout << "\n===================================\n";
-        cout << " Choose the station where you will\n";
-        cout << "       pick up the bicycle.\n";
+        if (purpose == "return") {
+            cout << " Choose the station where you will\n";
+            cout << "       return the bicycle.\n";
+        }
+        else {
+            cout << " Choose the station where you will\n";
+            cout << "       pick up the bicycle.\n";
+        }
         cout << "Enter the number next to the station.\n";
-		cout << "===================================\n";
+        cout << "===================================\n";
         cout << "    Available Stations (Penang)    \n";
         cout << "===================================\n";
         for (size_t i = 0; i < PENANG_STATIONS.size(); ++i) {
             cout << "  [" << (i + 1) << "] " << PENANG_STATIONS[i] << "\n";
         }
-        cout << "  [0] Back\n";
-        cout << "Select station by number (0-" << PENANG_STATIONS.size() << ")"
-            << (allowCancel ? " " : "") << ": ";
+        if (allowCancel) {
+            cout << "  [0] Back\n";
+        }
+        cout << "Select station by number ("
+            << (allowCancel ? "0-" : "")
+            << PENANG_STATIONS.size() << "): ";
+
         string input;
         getline(cin, input);
+
         if (input.empty()) {
-            cout << "[X] Please enter a number.\n";
+            cout << "\n[X] Please enter a number.\n";
+            waitForEnter();
             continue;
         }
+
         bool isNumber = true;
         for (char c : input) {
             if (!isdigit(static_cast<unsigned char>(c))) {
@@ -2323,18 +2459,27 @@ string getStationFromUser(bool allowCancel) {
                 break;
             }
         }
+
         if (!isNumber) {
-            cout << "[X] Invalid input. Enter a number.\n";
+            cout << "\n[X] Invalid input. Please enter a number between 0 and " << PENANG_STATIONS.size() << ".\n";
+            waitForEnter();
             continue;
         }
+
         int choice = stoi(input);
+
         if (allowCancel && choice == 0) {
-            return "";
+            return "";   // caller checks for empty string
         }
+
         if (choice >= 1 && choice <= static_cast<int>(PENANG_STATIONS.size())) {
             return PENANG_STATIONS[choice - 1];
         }
-        cout << "[X] Invalid choice. Please select between 1 and " << PENANG_STATIONS.size() << ".\n";
+
+        cout << "\n[X] Invalid choice. Please select between "
+            << (allowCancel ? "0 and " : "")
+            << "1 and " << PENANG_STATIONS.size() << ".\n";
+        waitForEnter();
     }
 }
 
@@ -2699,14 +2844,140 @@ string addHoursToTime(const string& time, int hours) {
     return oss.str();
 }
 
+bool offerMembershipDuringBooking(vector<Account>& users, int currentIdx, string& membershipType, int& discount) {
+    Account& user = users[currentIdx];
+
+    // If already a member, skip the prompt
+    if (user.membershipType != "None" && user.membershipStatus == "Active") {
+        membershipType = user.membershipType;
+        discount = user.discount;
+        return true; // continue booking
+    }
+
+    while (true) {
+        clearScreen();
+        cout << "\n========================================" << endl;
+        cout << "      MEMBERSHIP REGISTRATION" << endl;
+        cout << "              (OPTIONAL)" << endl;
+        cout << "========================================" << endl;
+        cout << endl;
+
+        cout << "Select Membership Type:" << endl;
+        cout << "----------------------------------------" << endl;
+        cout << " Become a member and enjoy exclusive" << endl;
+        cout << "          membership benefits!" << endl;
+        cout << endl;
+
+        cout << "  [1] Bronze Membership      RM 50.00" << endl;
+        cout << "  [2] Silver Membership      RM 100.00" << endl;
+        cout << "  [3] Gold Membership        RM 150.00" << endl;
+        cout << "  [4] Skip Membership" << endl;
+        cout << "  [0] Back" << endl;
+
+        cout << "----------------------------------------" << endl;
+        cout << "Enter choice (0-4): ";
+
+        string input;
+        getline(cin, input);
+
+        if (input.length() != 1 || !isdigit(input[0])) {
+            cout << "\n[X] Invalid choice. Please enter 0-4.\n";
+            waitForEnter();
+            continue;
+        }
+
+        int choice = input[0] - '0';
+        if (choice < 0 || choice > 4) {
+            cout << "\n[X] Invalid choice. Please enter 0-4.\n";
+            waitForEnter();
+            continue;
+        }
+
+        // User chose to go back
+        if (choice == 0) {
+            return false; // go back to bike selection
+        }
+
+        // User chose to skip
+        if (choice == 4) {
+            membershipType = "None";
+            discount = 0;
+            return true; // continue booking
+        }
+
+        // User chose a membership (1-3)
+        string type;
+        int disc;
+        double fee;
+        switch (choice) {
+        case 1: type = "Bronze"; disc = 2; fee = 50.00; break;
+        case 2: type = "Silver"; disc = 4; fee = 100.00; break;
+        case 3: type = "Gold";   disc = 6; fee = 150.00; break;
+        }
+
+        // Show membership summary
+        clearScreen();
+        cout << "========================================\n";
+        cout << "        MEMBERSHIP SUMMARY\n";
+        cout << "========================================\n";
+        cout << "Type         : " << type << "\n";
+        cout << "Discount     : " << disc << "%\n";
+        cout << "Annual Fee   : RM " << fixed << setprecision(2) << fee << "\n";
+        cout << "========================================\n";
+
+        if (!confirmAction("Proceed to membership payment?")) {
+            cout << "Membership registration cancelled.\n";
+            waitForEnter();
+            continue; // show membership menu again
+        }
+
+        // Process payment
+        string method;
+        if (!processMembershipPayment(fee, method)) {
+            cout << "Payment failed or cancelled. Membership not registered.\n";
+            waitForEnter();
+            continue; // show membership menu again
+        }
+
+        // Save membership to user account
+        string startDate = getCurrentDate();
+        string expiryDate = calculateExpiryDate(startDate, 1);
+        user.membershipType = type;
+        user.discount = disc;
+        user.annualFee = fee;
+        user.startDate = startDate;
+        user.expiryDate = expiryDate;
+        user.membershipStatus = "Active";
+        User_SaveFile(users);
+
+        // Return the new membership data
+        membershipType = type;
+        discount = disc;
+
+        cout << "\n========================================\n";
+        cout << "   MEMBERSHIP REGISTRATION SUCCESSFUL!\n";
+        cout << "========================================\n";
+        cout << "You are now a " << type << " member.\n";
+        cout << "Enjoy your " << disc << "% discount on this rental!\n";
+        cout << "========================================\n";
+        waitForEnter();
+
+        return true; // continue booking
+    }
+}
+
 void CreateBooking(vector<Booking>& bookings, vector<Bicycle>& inventory,
+    vector<Account>& users, int currentIdx,
     const string& customerID, const string& customerName,
     const string& membershipType, int discount) {
     clearScreen();
 
+    // ------------------------------------------------------------
+    // 1. Select pickup station (loop until valid or cancel)
+    // ------------------------------------------------------------
     string pickupStation;
-    while (true) { //Book_A_Bicycle
-        pickupStation = getStationFromUser(true);
+    while (true) {
+        pickupStation = getStationFromUser(true, "pickup");
         if (pickupStation.empty()) {
             if (confirmAction("Are you sure want to cancel the booking?")) {
                 cout << "Booking cancelled.\n";
@@ -2718,109 +2989,182 @@ void CreateBooking(vector<Booking>& bookings, vector<Bicycle>& inventory,
                 continue;
             }
         }
-        break;
+        break; // valid station chosen
     }
 
-    clearScreen();
-    cout << "Available bicycles at " << pickupStation << ":\n\n";
-    int cityCount = 0, mountainCount = 0, roadCount = 0, electricCount = 0;
-    for (const auto& bike : inventory) {
-        if (bike.station == pickupStation && bike.status == "Available") {
-            if (bike.type == "city") cityCount++;
-            else if (bike.type == "mountain") mountainCount++;
-            else if (bike.type == "road") roadCount++;
-            else if (bike.type == "electric") electricCount++;
+    // ------------------------------------------------------------
+    // 2. Choose bicycle type – loop until a bike is assigned or user cancels
+    // ------------------------------------------------------------
+    string assignedBikeID = "";
+    string selectedType = "";
+    bool bikeFound = false;
+
+    while (!bikeFound) {
+        clearScreen();
+
+        // ----- HEADER -----
+        cout << "=======================================\n";
+        cout << "   Available Bicycles at " << pickupStation << "\n";
+        cout << "=======================================\n\n";
+
+        int cityCount = 0, mountainCount = 0, roadCount = 0, electricCount = 0;
+        for (const auto& bike : inventory) {
+            if (bike.station == pickupStation && bike.status == "Available") {
+                if (bike.type == "city") cityCount++;
+                else if (bike.type == "mountain") mountainCount++;
+                else if (bike.type == "road") roadCount++;
+                else if (bike.type == "electric") electricCount++;
+            }
         }
-    }
-    cout << "[1] City     RM 5 / Hours (" << cityCount << " available)\n";
-    cout << "[2] Mountain RM 7 / Hours (" << mountainCount << " available)\n";
-    cout << "[3] Road     RM 4 / Horus (" << roadCount << " available)\n";
-    cout << "[4] Electric RM 8 / Hours (" << electricCount << " available)\n";
-    cout << "[0] Back\n";
 
-    string typeInput;
-    cout << "Select bike type (0-4): ";
-    getline(cin, typeInput);
-    if (typeInput == "0") {
-        if (confirmAction("Are you sure you want to go back? (Y/N): ")) {
-            cout << "Booking cancelled.\n";
+        struct BikeOption {
+            string type;
+            double rate;
+            int count;
+            int number;
+        };
+        vector<BikeOption> options = {
+            {"Road", RATE_ROAD, roadCount, 1},
+            {"City", RATE_CITY, cityCount, 2},
+            {"Mountain", RATE_MOUNTAIN, mountainCount, 3},
+            {"Electric", RATE_ELECTRIC, electricCount, 4}
+        };
+
+        cout << left << setw(8) << "Option"
+            << setw(14) << "Type"
+            << setw(16) << "Price / Hour"
+            << "Available\n";
+        cout << string(45, '-') << "\n";
+
+        for (const auto& opt : options) {
+            cout << "[" << opt.number << "]"
+                << setw(5) << " "
+                << setw(14) << opt.type
+                << "RM " << fixed << setprecision(2) << setw(12) << opt.rate
+                << opt.count << "\n";
+        }
+        cout << "[0] Back\n";
+        cout << "Select bike type (0-4): ";
+
+        string typeInput;
+        getline(cin, typeInput);
+
+        if (typeInput == "0") {
+            if (confirmAction("Are you sure you want to cancel the booking?")) {
+                cout << "Booking cancelled.\n";
+                waitForEnter();
+                return;
+            }
+            else {
+                continue;
+            }
+        }
+
+        if (typeInput.length() != 1 || !isdigit(typeInput[0])) {
+            cout << "[X] Invalid choice. Please enter a number between 0 and 4.\n";
             waitForEnter();
-            return;
+            continue;
+        }
+        int typeChoice = typeInput[0] - '0';
+        if (typeChoice < 1 || typeChoice > 4) {
+            cout << "[X] Invalid choice. Please enter 1-4 or 0 to cancel.\n";
+            waitForEnter();
+            continue;
+        }
+
+        switch (typeChoice) {
+        case 1: selectedType = "road"; break;
+        case 2: selectedType = "city"; break;
+        case 3: selectedType = "mountain"; break;
+        case 4: selectedType = "electric"; break;
+        }
+
+        for (const auto& bike : inventory) {
+            if (bike.type == selectedType && bike.station == pickupStation && bike.status == "Available") {
+                assignedBikeID = bike.bikeID;
+                break;
+            }
+        }
+
+        if (assignedBikeID.empty()) {
+            cout << "\n[X] No available " << selectedType << " bicycles at " << pickupStation << ".\n";
+            cout << "Please select another type.\n";
+            waitForEnter();
         }
         else {
-            return;
+            bikeFound = true;
+            cout << "Assigned bicycle: " << assignedBikeID << " (" << selectedType << ")\n";
+            waitForEnter();
         }
     }
-    int typeChoice;
-    if (typeInput.length() != 1 || !isdigit(typeInput[0])) {
-        cout << "[X] Invalid choice.\n";
-        waitForEnter();
-        return;
-    }
-    typeChoice = typeInput[0] - '0';
-    if (typeChoice < 1 || typeChoice > 4) {
-        cout << "[X] Invalid choice.\n";
+
+    // ------------------------------------------------------------
+    // 3. Offer membership registration (OPTIONAL)
+    // ------------------------------------------------------------
+    string finalMembershipType = membershipType;
+    int finalDiscount = discount;
+    bool membershipResult = offerMembershipDuringBooking(users, currentIdx, finalMembershipType, finalDiscount);
+    if (!membershipResult) {
+        // User chose "Back" – go back to user menu (simplest fallback)
+        cout << "Returning to user menu...\n";
         waitForEnter();
         return;
     }
 
-    string selectedType;
-    switch (typeChoice) {
-    case 1: selectedType = "city"; break;
-    case 2: selectedType = "mountain"; break;
-    case 3: selectedType = "road"; break;
-    case 4: selectedType = "electric"; break;
-    }
-
-    string assignedBikeID = "";
-    for (const auto& bike : inventory) {
-        if (bike.type == selectedType && bike.station == pickupStation &&
-            bike.status == "Available") {
-            assignedBikeID = bike.bikeID;
-            break;
-        }
-    }
-    if (assignedBikeID.empty()) {
-        cout << "[X] No available " << selectedType << " bicycles at " << pickupStation << ".\n";
-        waitForEnter();
-        return;
-    }
-    cout << "Assigned bicycle: " << assignedBikeID << " (" << selectedType << ")\n";
-
+    // ------------------------------------------------------------
+    // 4. Get start and end times – with immediate validation
+    // ------------------------------------------------------------
     string startTime, endTime;
     int duration = 0;
     bool validTimes = false;
     do {
-        cout << "Enter start time (HH:MM, 24-hour format, e.g., 14:30): ";
-        getline(cin, startTime);
-        if (startTime.length() != 5 || startTime[2] != ':' ||
-            !isdigit(startTime[0]) || !isdigit(startTime[1]) ||
-            !isdigit(startTime[3]) || !isdigit(startTime[4])) {
-            cout << "Invalid format. Please use HH:MM.\n";
-            continue;
-        }
-        cout << "Enter end time (HH:MM, 24-hour format): ";
-        getline(cin, endTime);
-        if (endTime.length() != 5 || endTime[2] != ':' ||
-            !isdigit(endTime[0]) || !isdigit(endTime[1]) ||
-            !isdigit(endTime[3]) || !isdigit(endTime[4])) {
-            cout << "Invalid format. Please use HH:MM.\n";
-            continue;
+        // Validate start time
+        bool startValid = false;
+        while (!startValid) {
+            cout << "Enter start time (HH:MM, 24-hour format, e.g., 14:30): ";
+            getline(cin, startTime);
+            if (startTime.length() != 5 || startTime[2] != ':' ||
+                !isdigit(startTime[0]) || !isdigit(startTime[1]) ||
+                !isdigit(startTime[3]) || !isdigit(startTime[4])) {
+                cout << "Invalid format. Please use HH:MM.\n";
+                continue;
+            }
+            int sh = stoi(startTime.substr(0, 2)), sm = stoi(startTime.substr(3, 2));
+            if (sh < 0 || sh > 23 || sm < 0 || sm > 59) {
+                cout << "Invalid hour or minute values. Hour must be 0-23, minute 0-59.\n";
+                continue;
+            }
+            startValid = true;
         }
 
+        // Validate end time
+        bool endValid = false;
+        while (!endValid) {
+            cout << "Enter end time (HH:MM, 24-hour format): ";
+            getline(cin, endTime);
+            if (endTime.length() != 5 || endTime[2] != ':' ||
+                !isdigit(endTime[0]) || !isdigit(endTime[1]) ||
+                !isdigit(endTime[3]) || !isdigit(endTime[4])) {
+                cout << "Invalid format. Please use HH:MM.\n";
+                continue;
+            }
+            int eh = stoi(endTime.substr(0, 2)), em = stoi(endTime.substr(3, 2));
+            if (eh < 0 || eh > 23 || em < 0 || em > 59) {
+                cout << "Invalid hour or minute values. Hour must be 0-23, minute 0-59.\n";
+                continue;
+            }
+            endValid = true;
+        }
+
+        // Calculate duration
         int sh = stoi(startTime.substr(0, 2)), sm = stoi(startTime.substr(3, 2));
         int eh = stoi(endTime.substr(0, 2)), em = stoi(endTime.substr(3, 2));
-        if (sh < 0 || sh > 23 || sm < 0 || sm > 59 || eh < 0 || eh > 23 || em < 0 || em > 59) {
-            cout << "Invalid hour or minute values.\n";
-            continue;
-        }
-
         int startMinutes = sh * 60 + sm;
         int endMinutes = eh * 60 + em;
         int diffMinutes = endMinutes - startMinutes;
-        if (diffMinutes <= 0) diffMinutes += 24 * 60; // overnight
+        if (diffMinutes <= 0) diffMinutes += 24 * 60;
 
-        duration = (diffMinutes + 59) / 60; // round up to whole hours
+        duration = (diffMinutes + 59) / 60;
         if (duration < 1) {
             cout << "Rental duration must be at least 1 hour.\n";
             continue;
@@ -2832,11 +3176,15 @@ void CreateBooking(vector<Booking>& bookings, vector<Bicycle>& inventory,
         validTimes = true;
     } while (!validTimes);
 
+    // ------------------------------------------------------------
+    // 5. Get current booking date and time
+    // ------------------------------------------------------------
     string bookingDate, bookingTime;
     getCurrentDateTime(bookingDate, bookingTime);
 
-    string returnTime = addHoursToTime(bookingTime, duration);
-
+    // ------------------------------------------------------------
+    // 6. Compute base rental rate
+    // ------------------------------------------------------------
     double baseRate = 0.0;
     for (const auto& bike : inventory) {
         if (bike.bikeID == assignedBikeID) {
@@ -2845,30 +3193,38 @@ void CreateBooking(vector<Booking>& bookings, vector<Bicycle>& inventory,
         }
     }
 
+    // ------------------------------------------------------------
+    // 7. Build the Booking object
+    // ------------------------------------------------------------
     Booking tempBooking;
     tempBooking.bookingID = generateBookingID(bookings);
     tempBooking.customerID = customerID;
     tempBooking.bikeID = assignedBikeID;
     tempBooking.bookingDate = bookingDate;
-    tempBooking.bookingTime = bookingTime;
+    tempBooking.bookingTime = startTime;
     tempBooking.pickupStation = pickupStation;
-    tempBooking.returnTime = returnTime;
+    tempBooking.returnTime = endTime;
     tempBooking.paymentMethod = "";
-    tempBooking.membershipType = membershipType;
-    tempBooking.discount = discount;
+    tempBooking.membershipType = finalMembershipType;
+    tempBooking.discount = finalDiscount;
     tempBooking.duration = duration;
     tempBooking.status = "Active";
 
+    // ------------------------------------------------------------
+    // 8. Show booking summary and confirm
+    // ------------------------------------------------------------
     clearScreen();
-    cout << "===== BOOKING SUMMARY =====\n";
+    cout << "==============================\n";
+    cout << "      Booking Summary\n";
+    cout << "==============================\n";
     cout << "Booking ID     : " << tempBooking.bookingID << "\n";
     cout << "Customer ID    : " << tempBooking.customerID << "\n";
     cout << "Bicycle ID     : " << tempBooking.bikeID << "\n";
     cout << "Date           : " << tempBooking.bookingDate << "\n";
-    cout << "Time           : " << tempBooking.bookingTime << "\n";
-    cout << "Pickup Station : " << tempBooking.pickupStation << "\n";
-    cout << "Return Time    : " << tempBooking.returnTime << "\n";
+    cout << "Start Time     : " << tempBooking.bookingTime << "\n";
+    cout << "End Time       : " << tempBooking.returnTime << "\n";
     cout << "Duration       : " << tempBooking.duration << " hours\n";
+    cout << "Pickup Station : " << tempBooking.pickupStation << "\n";
     cout << "Membership     : " << tempBooking.membershipType << " (" << tempBooking.discount << "% discount)\n";
     cout << "--------------------------\n";
 
@@ -2878,6 +3234,9 @@ void CreateBooking(vector<Booking>& bookings, vector<Bicycle>& inventory,
         return;
     }
 
+    // ------------------------------------------------------------
+    // 9. Process payment
+    // ------------------------------------------------------------
     string paymentMethod = ProcessPaymentForBooking(tempBooking, duration, baseRate, customerName);
     if (paymentMethod.empty()) {
         cout << "Payment failed or cancelled. Booking not created.\n";
@@ -2886,6 +3245,9 @@ void CreateBooking(vector<Booking>& bookings, vector<Bicycle>& inventory,
     }
     tempBooking.paymentMethod = paymentMethod;
 
+    // ------------------------------------------------------------
+    // 10. Mark bike as rented
+    // ------------------------------------------------------------
     for (auto& bike : inventory) {
         if (bike.bikeID == assignedBikeID) {
             bike.status = "Rented";
@@ -2893,14 +3255,17 @@ void CreateBooking(vector<Booking>& bookings, vector<Bicycle>& inventory,
         }
     }
 
+    // ------------------------------------------------------------
+    // 11. Save booking
+    // ------------------------------------------------------------
     bookings.push_back(tempBooking);
     SaveBookingsToFile(bookings, BOOKING_FILE);
 
     cout << "\nBooking created successfully!\n";
     cout << "Booking ID: " << tempBooking.bookingID << "\n";
     cout << "Bicycle   : " << tempBooking.bikeID << "\n";
-    cout << "Date/Time : " << tempBooking.bookingDate << " " << tempBooking.bookingTime << "\n";
-    cout << "Return at : " << tempBooking.returnTime << "\n";
+    cout << "Start at  : " << tempBooking.bookingDate << " " << tempBooking.bookingTime << "\n";
+    cout << "Return by : " << tempBooking.bookingDate << " " << tempBooking.returnTime << " (scheduled)\n";
     cout << "Pickup at : " << tempBooking.pickupStation << "\n";
     waitForEnter();
 }
@@ -2926,7 +3291,9 @@ void ViewMyBookings(const vector<Booking>& bookings, const string& customerID) {
 
     while (true) {
         clearScreen();
-        cout << "===== MY BOOKING DETAILS =====\n";
+        cout << "==============================\n";
+        cout << "      My Booking Details\n";
+        cout << "==============================\n";
         cout << left
             << setw(12) << "Booking ID"
             << setw(12) << "Date"
@@ -2959,7 +3326,7 @@ void ViewMyBookings(const vector<Booking>& bookings, const string& customerID) {
         cout << "Enter your option (0-2): ";
         getline(cin, input);
         if (input.length() != 1 || !isdigit(input[0])) {
-            cout << "Invalid input. Please enter 0, 1 or 2.\n";
+            cout << "Invalid input. Please enter (0-2).\n";
             waitForEnter();
             continue;
         }
@@ -2983,138 +3350,187 @@ void ViewMyBookings(const vector<Booking>& bookings, const string& customerID) {
 void ReturnBicycle(vector<Booking>& bookings, vector<Bicycle>& inventory,
     const string& customerID) {
     clearScreen();
-    cout << "===== RETURN BICYCLE =====\n";
+    cout << "==============================\n";
+    cout << "       Return Bicycle\n";
+    cout << "==============================\n";
 
-    vector<Booking*> active;
-    for (auto& b : bookings) {
-        if (b.customerID == customerID && b.status == "Active") {
-            active.push_back(&b);
+    while (true) { // Outer loop – booking selection
+        // ------------------------------------------------------------
+        // 1. Find all active bookings for this customer
+        // ------------------------------------------------------------
+        vector<Booking*> active;
+        for (auto& b : bookings) {
+            if (b.customerID == customerID && b.status == "Active") {
+                active.push_back(&b);
+            }
         }
-    }
-    if (active.empty()) {
-        cout << "No active bookings to return.\n";
-        waitForEnter();
-        return;
-    }
-
-    cout << "Your active bookings:\n";
-    for (size_t i = 0; i < active.size(); ++i) {
-        cout << "[" << i + 1 << "] Booking " << active[i]->bookingID
-            << " | Bike: " << active[i]->bikeID
-            << " | Scheduled Return: " << active[i]->returnTime << "\n";
-    }
-    cout << "[0] Back\n";
-
-    string choiceInput;
-    cout << "Select booking to return (1-" << active.size() << " or 0): ";
-    getline(cin, choiceInput);
-
-    if (choiceInput == "0") {
-        if (confirmAction("Are you sure you want to go back?")) {
-            cout << "Return cancelled.\n";
+        if (active.empty()) {
+            cout << "No active bookings to return.\n";
             waitForEnter();
             return;
         }
-        return;
-    }
 
-    int idx;
-    if (choiceInput.length() != 1 || !isdigit(choiceInput[0])) {
-        cout << "[X] Invalid choice.\n";
-        waitForEnter();
-        return;
-    }
-    idx = choiceInput[0] - '0';
-    if (idx < 1 || idx > static_cast<int>(active.size())) {
-        cout << "[X] Invalid choice.\n";
-        waitForEnter();
-        return;
-    }
-
-    Booking& selected = *active[idx - 1];
-
-    // Compute actual hours used
-    string currentDate, currentTime;
-    getCurrentDateTime(currentDate, currentTime);
-    double actualHours = hoursDifference(selected.bookingDate, selected.bookingTime,
-        currentDate, currentTime);
-    if (actualHours < 0) actualHours = 0;
-
-    double overtimeHours = 0;
-    if (actualHours > selected.duration) {
-        overtimeHours = actualHours - selected.duration;
-    }
-
-    // Ask for return station
-    string returnStation = getStationFromUser();
-
-    // Show summary
-    clearScreen();
-    cout << "===== RETURN SUMMARY =====\n";
-    cout << "Booking ID    : " << selected.bookingID << "\n";
-    cout << "Bicycle ID    : " << selected.bikeID << "\n";
-    cout << "Pickup Station: " << selected.pickupStation << "\n";
-    cout << "Return Station: " << returnStation << "\n";
-    cout << "Scheduled Duration : " << selected.duration << " hours\n";
-    cout << "Actual Duration    : " << fixed << setprecision(1) << actualHours << " hours\n";
-    if (overtimeHours > 0) {
-        double overtimeFee = overtimeHours * OVERTIME_RATE;
-        cout << "Overtime Hours : " << fixed << setprecision(1) << overtimeHours << " hours\n";
-        cout << "Overtime Fee   : RM " << fixed << setprecision(2) << overtimeFee << "\n";
-    }
-    cout << "--------------------------\n";
-
-    if (!confirmAction("Do you confirm the return of this bicycle?")) {
-        cout << "\nReturn cancelled.\n";
-        waitForEnter();
-        return;
-    }
-
-    // Process overtime payment if any
-    if (overtimeHours > 0) {
-        double overtimeFee = overtimeHours * OVERTIME_RATE;
-        cout << "\nYou have overtime charges of RM " << fixed << setprecision(2) << overtimeFee << ".\n";
-        string method;
-        // Reuse the membership payment function (it expects amount and returns bool)
-        if (processMembershipPayment(overtimeFee, method)) {
-            cout << "Overtime payment successful.\n";
-            // Record the overtime payment
-            Payment otPayment;
-            otPayment.paymentID = generatePaymentID(transactions);
-            otPayment.bookingID = selected.bookingID;
-            otPayment.bikeID = selected.bikeID;
-            otPayment.customerName = currentCustomer; // or fetch from Account
-            otPayment.paymentAmount = overtimeFee;
-            otPayment.paymentMethod = method;
-            string date, time;
-            getCurrentDateTime(date, time);
-            otPayment.paymentDate = date;
-            transactions.push_back(otPayment);
-            SavePaymentToFile();
+        // ------------------------------------------------------------
+        // 2. Let the user choose which booking to return
+        // ------------------------------------------------------------
+        cout << "Your active bookings:\n";
+        for (size_t i = 0; i < active.size(); ++i) {
+            cout << "[" << i + 1 << "] Booking " << active[i]->bookingID
+                << " | Bike: " << active[i]->bikeID
+                << " | Scheduled Return: " << active[i]->returnTime << "\n";
         }
-        else {
-            cout << "Overtime payment failed or cancelled. Return process aborted.\n";
+        cout << "[0] Back\n";
+
+        string choiceInput;
+        cout << "Select booking to return (0-" << active.size() << "): ";
+        getline(cin, choiceInput);
+
+        if (choiceInput == "0") {
+            if (confirmAction("Are you sure you want to go back?")) {
+                cout << "Return cancelled.\n";
+                waitForEnter();
+                return; // exit to user menu
+            }
+            continue; // stay in loop
+        }
+
+        int idx;
+        if (choiceInput.length() != 1 || !isdigit(choiceInput[0])) {
+            cout << "[X] Invalid choice.\n";
             waitForEnter();
-            return;
+            continue;
         }
-    }
-
-    // Update bike status and station
-    for (auto& bike : inventory) {
-        if (bike.bikeID == selected.bikeID) {
-            bike.status = "Available";
-            bike.station = returnStation;
-            break;
+        idx = choiceInput[0] - '0';
+        if (idx < 1 || idx > static_cast<int>(active.size())) {
+            cout << "[X] Invalid choice.\n";
+            waitForEnter();
+            continue;
         }
+
+        Booking& selected = *active[idx - 1];
+
+        // ------------------------------------------------------------
+        // Inner loop – station selection and confirmation
+        // ------------------------------------------------------------
+        bool returnCompleted = false;
+        while (!returnCompleted) {
+            // ------------------------------------------------------------
+            // 3. Compute actual hours used (from start time to now)
+            // ------------------------------------------------------------
+            string currentDate, currentTime;
+            getCurrentDateTime(currentDate, currentTime);
+            double actualHours = hoursDifference(selected.bookingDate, selected.bookingTime,
+                currentDate, currentTime);
+            if (actualHours < 0) actualHours = 0;
+
+            double overtimeHours = 0;
+            if (actualHours > selected.duration) {
+                overtimeHours = actualHours - selected.duration;
+            }
+
+            // ------------------------------------------------------------
+            // 4. Ask for return station – allows cancellation with "0"
+            // ------------------------------------------------------------
+            string returnStation = getStationFromUser(true, "return");
+            if (returnStation.empty()) {
+                // User pressed 0 – go back to booking selection
+                cout << "Return cancelled. Please select another booking.\n";
+                waitForEnter();
+                break; // exit inner loop, goes to outer loop (booking list)
+            }
+
+            // ------------------------------------------------------------
+            // 5. Show return summary
+            // ------------------------------------------------------------
+            clearScreen();
+            cout << "==============================\n";
+            cout << "       RETURN SUMMARY\n";
+            cout << "==============================\n";
+            cout << "Booking ID    : " << selected.bookingID << "\n";
+            cout << "Bicycle ID    : " << selected.bikeID << "\n";
+            cout << "Pickup Station: " << selected.pickupStation << "\n";
+            cout << "Return Station: " << returnStation << "\n";
+            cout << "Scheduled Duration : " << selected.duration << " hours\n";
+            cout << "Actual Duration    : " << fixed << setprecision(1) << actualHours << " hours\n";
+            if (overtimeHours > 0) {
+                double overtimeFee = overtimeHours * OVERTIME_RATE;
+                cout << "Overtime Hours : " << fixed << setprecision(1) << overtimeHours << " hours\n";
+                cout << "Overtime Fee   : RM " << fixed << setprecision(2) << overtimeFee << "\n";
+            }
+            cout << "--------------------------\n";
+
+            if (confirmAction("Do you confirm the return of this bicycle?")) {
+                // ------------------------------------------------------------
+                // 6. Process overtime payment if any
+                // ------------------------------------------------------------
+                if (overtimeHours > 0) {
+                    double overtimeFee = overtimeHours * OVERTIME_RATE;
+                    cout << "\nYou have overtime charges of RM " << fixed << setprecision(2) << overtimeFee << ".\n";
+                    string method;
+                    if (processMembershipPayment(overtimeFee, method)) {
+                        cout << "Overtime payment successful.\n";
+                        Payment otPayment;
+                        otPayment.paymentID = generatePaymentID(transactions);
+                        otPayment.bookingID = selected.bookingID;
+                        otPayment.bikeID = selected.bikeID;
+                        otPayment.customerName = currentCustomer;
+                        otPayment.paymentAmount = overtimeFee;
+                        otPayment.paymentMethod = method;
+                        string date, time;
+                        getCurrentDateTime(date, time);
+                        otPayment.paymentDate = date;
+                        transactions.push_back(otPayment);
+                        SavePaymentToFile();
+                    }
+                    else {
+                        cout << "Overtime payment failed or cancelled. Return process aborted.\n";
+                        waitForEnter();
+                        continue; // stay in inner loop, re-ask station?
+                        // Actually we want to go back to station selection? We'll just continue.
+                    }
+                }
+
+                // ------------------------------------------------------------
+                // 7. Update bike status and station
+                // ------------------------------------------------------------
+                for (auto& bike : inventory) {
+                    if (bike.bikeID == selected.bikeID) {
+                        bike.status = "Available";
+                        bike.station = returnStation;
+                        break;
+                    }
+                }
+
+                // ------------------------------------------------------------
+                // 8. Mark booking as completed
+                // ------------------------------------------------------------
+                selected.status = "Completed";
+                SaveBookingsToFile(bookings, BOOKING_FILE);
+
+                cout << "\nBicycle returned successfully.\n";
+                cout << "Booking ID: " << selected.bookingID << " completed.\n";
+                cout << "Bicycle now at: " << returnStation << "\n";
+                waitForEnter();
+                return; // exit the whole function
+            }
+            else {
+                // User declined the return
+                cout << "\nDo you want to change the return station? (Y/N): ";
+                string change;
+                getline(cin, change);
+                if (change == "Y" || change == "y") {
+                    // Loop back to station selection
+                    continue;
+                }
+                else {
+                    // Go back to booking list
+                    cout << "Return cancelled.\n";
+                    waitForEnter();
+                    break; // exit inner loop, goes to outer loop
+                }
+            }
+        } // end inner while (!returnCompleted)
     }
-
-    selected.status = "Completed";
-    SaveBookingsToFile(bookings, BOOKING_FILE);
-
-    cout << "\nBicycle returned successfully.\n";
-    cout << "Booking ID: " << selected.bookingID << " completed.\n";
-    cout << "Bicycle now at: " << returnStation << "\n";
-    waitForEnter();
 }
 
 void SaveBookingsToFile(const vector<Booking>& bookings, const string& filename) {
@@ -3243,12 +3659,16 @@ string ProcessPaymentForBooking(const Booking& booking, double rentalHours,
         double disc = booking.discount / 100.0;
         subtotal -= subtotal * disc;
     }
-    double tax = subtotal * TAX_RATE;
-    double total = subtotal + tax;
+    // ---- ROUNDING FIX ----
+    subtotal = roundToTwo(subtotal);
+    double tax = roundToTwo(subtotal * TAX_RATE);
+    double total = roundToTwo(subtotal + tax);
 
     clearScreen();
     cout << fixed << setprecision(2);
-    cout << "\n========== PAYMENT SUMMARY ==========\n";
+    cout << "\n==============================\n";
+    cout << "       PAYMENT SUMMARY\n";
+    cout << "==============================\n";
     cout << "Booking ID   : " << booking.bookingID << "\n";
     cout << "Bike ID      : " << booking.bikeID << "\n";
     cout << "Customer     : " << customerName << "\n";
@@ -3284,9 +3704,9 @@ string ProcessPaymentForBooking(const Booking& booking, double rentalHours,
             cout << "[X] Please enter a valid number.\n";
             continue;
         }
-        paid = stod(input);
+        paid = roundToTwo(stod(input));   // round user input
         if (paid < total) {
-            cout << "[X] Insufficient. Must enter at least RM " << total << "\n";
+            cout << "[X] Insufficient. Must enter at least RM " << fixed << setprecision(2) << total << "\n";
         }
         else {
             break;
@@ -3352,9 +3772,31 @@ string ProcessPaymentForBooking(const Booking& booking, double rentalHours,
         } while (!cvvOk);
 
         cout << "Card verified.\n";
+        waitForEnter();   // pause before clearing
+        clearScreen();    // clear screen for next step
     }
     else if (methodChoice == 3) {
-        cout << "Touch'n Go selected.\n";
+        // ---- Add Touch'n Go phone number prompt ----
+        string phone;
+        bool valid = false;
+        do {
+            cout << "TnG eWallet phone number (e.g., 0123456789): ";
+            getline(cin, phone);
+            if (phone.length() < 10 || phone.length() > 11) {
+                cout << "Invalid phone number.\n";
+                continue;
+            }
+            bool ok = true;
+            for (char c : phone) if (!isdigit(c)) { ok = false; break; }
+            if (!ok || phone.substr(0, 2) != "01") {
+                cout << "Invalid phone number.\n";
+                continue;
+            }
+            valid = true;
+        } while (!valid);
+        cout << "TnG eWallet validated. Processing...\n";
+        waitForEnter();   // pause before clearing
+        clearScreen();    // clear screen for next step
     }
 
     Payment newP;
@@ -3591,7 +4033,9 @@ void DisplayAllPayments(const vector<Booking>& bookings) {
 void GenerateReceipt(const string& paymentID) {
     for (const auto& p : transactions) {
         if (p.paymentID == paymentID) {
-            cout << "\n========== RECEIPT ==========\n";
+            cout << "\n==============================\n";
+            cout << "       RECEIPT\n";
+            cout << "==============================\n";
             cout << "Payment ID   : " << p.paymentID << "\n";
             cout << "Booking ID   : " << p.bookingID << "\n";
             cout << "Bike ID      : " << p.bikeID << "\n";
@@ -3866,7 +4310,9 @@ void generateInvoiceForUser(
 {
     const string indent = string(0, ' ');
     clearScreen();
-    cout << indent << "===== GENERATE INVOICE =====\n";
+    cout << indent << "==============================\n";
+    cout << indent << "       GENERATE INVOICE\n";
+    cout << indent << "==============================\n";
 
     const Account& user = users[currentIdx];
 
