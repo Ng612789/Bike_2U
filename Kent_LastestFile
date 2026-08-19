@@ -673,7 +673,7 @@ void changeMembership(vector<Account>& users, int currentIdx) {
     cout << "  [1] Bronze  (2% discount, RM50/year)\n";
     cout << "  [2] Silver  (4% discount, RM100/year)\n";
     cout << "  [3] Gold    (6% discount, RM150/year)\n";
-    cout << "  [0] Cancel\n";
+    cout << "  [0] Back\n";
 
     int choice = getValidOption(0, 3, "");
     if (choice == 0) {
@@ -2420,16 +2420,14 @@ string getStationFromUser(bool allowCancel, const string& purpose) {
     while (true) {
         clearScreen(); // Refresh the screen each time
 
-        cout << "\n===================================\n";
         if (purpose == "return") {
-            cout << " Choose the station where you will\n";
-            cout << "       return the bicycle.\n";
+            cout << "Step 1 : Choose the station where you will return the bicycle.\n";
         }
         else {
-            cout << " Choose the station where you will\n";
-            cout << "       pick up the bicycle.\n";
+            cout << "Step 1 : Choose the station where you will pick up the bicycle.\n";
+        
         }
-        cout << "Enter the number next to the station.\n";
+        cout << "\n";
         cout << "===================================\n";
         cout << "    Available Stations (Penang)    \n";
         cout << "===================================\n";
@@ -2439,7 +2437,7 @@ string getStationFromUser(bool allowCancel, const string& purpose) {
         if (allowCancel) {
             cout << "  [0] Back\n";
         }
-        cout << "Select station by number ("
+        cout << "Enter station by number ("
             << (allowCancel ? "0-" : "")
             << PENANG_STATIONS.size() << "): ";
 
@@ -2476,9 +2474,9 @@ string getStationFromUser(bool allowCancel, const string& purpose) {
             return PENANG_STATIONS[choice - 1];
         }
 
-        cout << "\n[X] Invalid choice. Please select between "
-            << (allowCancel ? "0 and " : "")
-            << "1 and " << PENANG_STATIONS.size() << ".\n";
+        cout << "\n[X] Invalid option. Please select "
+            << (allowCancel ? "0" : "")
+            << "-" << PENANG_STATIONS.size() << ".\n";
         waitForEnter();
     }
 }
@@ -3373,6 +3371,7 @@ void ReturnBicycle(vector<Booking>& bookings, vector<Bicycle>& inventory,
         // ------------------------------------------------------------
         // 2. Let the user choose which booking to return
         // ------------------------------------------------------------
+        clearScreen();
         cout << "Your active bookings:\n";
         for (size_t i = 0; i < active.size(); ++i) {
             cout << "[" << i + 1 << "] Booking " << active[i]->bookingID
