@@ -223,7 +223,7 @@ void LoadPaymentFromFile();
 void SavePaymentToFile();
 string ProcessPaymentForBooking(const Booking& booking, double rentalHours, double baseRate, const string& customerName, const string& bikeType);
 bool isValidExpiry(const string& expiry);
-void DisplayUserPaymentHistory(const string& customerName, const vector<Booking>& bookings);
+void DisplayUserPaymentHistory(const string& customerName, const vector<Booking>& bookings, const vector<Bicycle>& inventory);
 void adminRefundManagement(vector<Payment>& transactions);
 void RequestRefund(vector<Account>& users, int currentIdx, vector<Booking>& bookings, vector<Payment>& transactions, const vector<Bicycle>& inventory);
 void DisplayAllPayments(const vector<Booking>& bookings);
@@ -610,7 +610,7 @@ void userMenu(vector<Account>& users, int currentIdx, vector<RepairReport>& repa
             ReturnBicycle(bookings, inventory, users[currentIdx].accountID);
             break;
         case 4:
-            DisplayUserPaymentHistory(users[currentIdx].name, bookings);
+            DisplayUserPaymentHistory(users[currentIdx].name, bookings, inventory);
             break;
         case 5:
             RequestRefund(users, currentIdx, bookings, transactions, inventory);
@@ -1165,7 +1165,7 @@ void accountManagementMenu(vector<RepairReport>& repairs, vector<Account>& users
         cout << "          ACCOUNT MANAGEMENT\n";
         cout << "========================================\n";
         cout << "[1] View All Customers\n";
-        cout << "[2] Delete Customer Account\n";
+        cout << "[2] Delete Account\n";
         cout << "[0] Back\n";
 
         int option = getValidOption(0, 2);
@@ -1201,7 +1201,7 @@ int getValidOption(int minVal, int maxVal, const string& indent) {
 
         // Check if the input is empty
         if (input.empty()) {
-            cout << indent << "[X] Input cannot be empty.\n";
+            cout << indent << "[X] Input cannot be empty. Please enter option (" << minVal << " - " << maxVal << ").\n";
             waitForEnter(indent);
             return -1;
         }
@@ -1485,7 +1485,7 @@ void repairService(const Account& user, vector<RepairReport>& repairs,
         cout << "==============================\n";
         cout << "       REPAIR SERVICE\n";
         cout << "==============================\n";
-        cout << "\nSelect the bicycle you want to report damage for:\n";
+        cout << "\nSelect the bicycle you want to report damage for:\n\n";
 
         for (size_t i = 0; i < bikeList.size(); ++i) {
             cout << "[" << (i + 1) << "] Bike ID: " << bikeList[i].bikeID
@@ -1493,20 +1493,20 @@ void repairService(const Account& user, vector<RepairReport>& repairs,
                 << " | Date: " << bikeList[i].date
                 << " | Time: " << bikeList[i].time << "\n";
         }
-        cout << "[0] Cancel\n";
-        cout << "Enter your option: ";
+        cout << "[0] Cancel\n\n";
+        cout << "Enter your option (0-" << bikeList.size() << ") : ";
 
         string input;
         getline(cin, input);
         if (input.empty() || !all_of(input.begin(), input.end(), ::isdigit)) {
-            cout << "[X] Invalid input. Please enter a number.\n";
+            cout << "[X] Invalid option. Please enter a number (0-" << bikeList.size() << ").\n";
             waitForEnter();
             continue;
         }
 
         int choice = stoi(input);
         if (choice == 0) {
-            if (confirmAction("Are you sure you want to return back?")) {
+            if (confirmAction("Are you sure want to return back?")) {
                 cout << "Returning...\n";
                 waitForEnter();
                 return;
@@ -1534,7 +1534,9 @@ void repairService(const Account& user, vector<RepairReport>& repairs,
     bool validInput = false;
     while (!validInput) {
         clearScreen();
-        cout << "===== REPAIR SERVICE =====\n";
+        cout << "==============================\n";
+        cout << "       REPAIR SERVICE\n";
+        cout << "==============================\n";
         cout << "\n----- User Information ------\n";
         cout << "ID           : " << user.accountID << "\n";
         cout << "Name         : " << user.name << "\n";
@@ -1556,7 +1558,7 @@ void repairService(const Account& user, vector<RepairReport>& repairs,
         inputLine.erase(remove_if(inputLine.begin(), inputLine.end(), ::isspace), inputLine.end());
 
         if (inputLine == "0") {
-            if (confirmAction("Are you sure you want to return back?")) {
+            if (confirmAction("Are you sure want to return back?")) {
                 cout << "Returning...\n";
                 waitForEnter();
                 return;
@@ -1603,7 +1605,7 @@ void repairService(const Account& user, vector<RepairReport>& repairs,
         }
 
         if (parseError) {
-            cout << "[X] Invalid input. Please enter numbers between 1 and " << NUM_OPTIONS << " (e.g., 1,2,3).\n";
+            cout << "[X] Invalid option. Please enter numbers between 1 and " << NUM_OPTIONS << " (e.g., 1,2,3).\n";
             waitForEnter();
             continue;
         }
@@ -1823,7 +1825,6 @@ void viewDamageReportDetails(const vector<RepairReport>& repairs) {
         cout << "[3] Completed\n";
         cout << "[4] Cancelled\n";
         cout << "[0] Back\n";
-        cout << "Enter option (0-4): ";
         int option = getValidOption(0, 4, "");
         if (option == -1)
             continue;
@@ -1896,12 +1897,20 @@ void updateDamageReportStatus(vector<RepairReport>& repairs) {
         }
 
         cout << "\n--- All Repair Reports ---\n";
-        cout << left << setw(14) << "Customer ID" << setw(13) << "Bicycle ID" << setw(12) << "Date" << setw(12) << "Status" << "\n";
-        cout << string(47, '-') << "\n";
+        cout << left << setw(12) << "Report ID"
+            << setw(14) << "Customer ID"
+            << setw(12) << "Bicycle ID"
+            << setw(12) << "Date"
+            << "Status" << "\n";
+        cout << string(65, '-') << "\n";
         for (const auto& repair : repairs) {
-            cout << left << setw(14) << repair.repairID << setw(13) << repair.bicycleID << setw(12) << repair.date << setw(12) << repair.status << "\n";
+            cout << left << setw(12) << repair.repairID
+                << setw(14) << repair.userID
+                << setw(12) << repair.bicycleID
+                << setw(12) << repair.date
+                << repair.status << "\n";
         }
-        cout << string(47, '-') << "\n\n";
+        cout << string(65, '-') << "\n\n";
 
         cout << "[Enter 0 to return back]" << endl;
         cout << "Enter Report ID to update status: ";
@@ -1937,6 +1946,9 @@ void updateDamageReportStatus(vector<RepairReport>& repairs) {
         clearScreen();
         cout << string(54, '-') << "\n";
         cout << "Report ID       : " << repair.repairID << "\n";
+        cout << "Customer ID     : " << repair.userID << "\n";
+        cout << "Bicycle ID      : " << repair.bicycleID << "\n";
+        cout << "Date            : " << repair.date << "\n";
         cout << "Current Status  : " << repair.status << "\n";
         cout << string(54, '-') << "\n";
         cout << "Select New Status:\n";
@@ -2186,7 +2198,7 @@ void deleteAcc(vector<RepairReport>& repairs, vector<Account>& users) {
     string input;
     while (true) {
         cout << "[Enter 0 to return back]" << endl;
-        cout << "Enter Email or Account ID of user to delete: ";
+        cout << "Enter Email or Customer ID of user to delete: ";
         getline(cin, input);
         string trimmedInput = trim(input);
 
@@ -2404,7 +2416,7 @@ void DisplayInventoryMenu(vector<Bicycle>& inventory, vector<Booking>& bookings)
         cout << "[2] Add new bicycle\n";
         cout << "[3] Update bicycle\n";
         cout << "[4] Remove bicycle\n";
-        cout << "[5] Search by bicycle type\n";
+        cout << "[5] Filter bicycle type\n";
         cout << "[0] Back\n";
 
         int option = getValidOption(0, 5, "");
@@ -2567,15 +2579,19 @@ bool isDouble(const string& s) {
 
 string getStationFromUser(bool allowCancel, const string& purpose) {
     while (true) {
-        clearScreen(); // Refresh the screen each time
+        clearScreen();
 
+        // ---- Purpose message ----
         if (purpose == "return") {
             cout << "Step 1 : Choose the station where you will return the bicycle.\n";
         }
-        else {
+        else if (purpose == "pickup") {
             cout << "Step 1 : Choose the station where you will pick up the bicycle.\n";
-
         }
+        else {
+            cout << "Choose the station to store the bicycle.\n";
+        }
+
         cout << "\n";
         cout << "===================================\n";
         cout << "    AVAILABLE STATIONS (PENANG)    \n";
@@ -2586,9 +2602,14 @@ string getStationFromUser(bool allowCancel, const string& purpose) {
         if (allowCancel) {
             cout << "[0] Back\n";
         }
-        cout << "Enter station by number ("
-            << (allowCancel ? "0-" : "")
-            << PENANG_STATIONS.size() << "): ";
+
+        // ---- Prompt with correct range ----
+        if (allowCancel) {
+            cout << "Enter station by number (0-" << PENANG_STATIONS.size() << "): ";
+        }
+        else {
+            cout << "Enter station by number (1-" << PENANG_STATIONS.size() << "): ";
+        }
 
         string input;
         getline(cin, input);
@@ -2599,6 +2620,7 @@ string getStationFromUser(bool allowCancel, const string& purpose) {
             continue;
         }
 
+        // ---- Validate numeric input ----
         bool isNumber = true;
         for (char c : input) {
             if (!isdigit(static_cast<unsigned char>(c))) {
@@ -2606,25 +2628,27 @@ string getStationFromUser(bool allowCancel, const string& purpose) {
                 break;
             }
         }
-
         if (!isNumber) {
-            cout << "\n[X] Invalid input. Please enter a number between 0 and " << PENANG_STATIONS.size() << ".\n";
+            cout << "\n[X] Invalid input. Please enter a number.\n";
             waitForEnter();
             continue;
         }
 
         int choice = stoi(input);
 
+        // ---- Handle cancellation ----
         if (allowCancel && choice == 0) {
             return "";   // caller checks for empty string
         }
 
+        // ---- Validate choice range ----
         if (choice >= 1 && choice <= static_cast<int>(PENANG_STATIONS.size())) {
             return PENANG_STATIONS[choice - 1];
         }
 
+        // ---- Invalid option ----
         cout << "\n[X] Invalid option. Please select "
-            << (allowCancel ? "0" : "")
+            << (allowCancel ? "0" : "1")
             << "-" << PENANG_STATIONS.size() << ".\n";
         waitForEnter();
     }
@@ -2691,7 +2715,7 @@ void AddBicycle(vector<Bicycle>& inventory) {
 
     bike.status = "Available";
 
-    bike.station = getStationFromUser();
+    bike.station = getStationFromUser(false, "store");
 
     inventory.push_back(bike);
     cout << "\nBicycle added successfully with ID: " << bike.bikeID << "\n";
@@ -2828,7 +2852,7 @@ void UpdateBicycle(vector<Bicycle>& inventory, const vector<Booking>& bookings) 
         }
         case 4: {
             cout << "Current station: " << inventory[idx].station << "\n";
-            string newStation = getStationFromUser();
+            string newStation = getStationFromUser(false, "store");
             inventory[idx].station = newStation;
             cout << "Station updated.\n";
             waitForEnter();
@@ -2920,19 +2944,31 @@ void ViewBicycle(const vector<Bicycle>& inventory) {
     clearScreen();
     if (inventory.empty()) {
         cout << "No bicycles in inventory.\n";
+        waitForEnter(); 
         return;
     }
 
     cout << "\n===================================\n";
     cout << "             ALL BICYCLES          \n";
     cout << "===================================\n";
-    cout << left << setw(12) << "ID" << setw(15) << "Type" << setw(15) << "Brand" << setw(15) << "Rate (RM/h)" << setw(20) << "Station" << setw(12) << "Status" << "\n";
-    cout << string(89, '-') << "\n";
+    cout << left
+        << setw(12) << "Bicycle ID"
+        << setw(12) << "Type"
+        << setw(14) << "Brand"
+        << setw(10) << "Rate (RM/h)"
+        << setw(18) << "Station"
+        << setw(10) << "Status" << "\n";
+    cout << string(80, '-') << "\n";
 
     for (const auto& bike : inventory) {
-        cout << left << setw(12) << bike.bikeID << setw(15) << bike.type << setw(15) << bike.brand
-            << setw(15) << fixed << setprecision(2) << bike.rentalRatePerHour << setw(20) << bike.station << setw(12) << bike.status << "\n";
-    }
+        cout << left
+            << setw(12) << bike.bikeID
+            << setw(12) << bike.type
+            << setw(14) << bike.brand
+            << setw(10) << fixed << setprecision(2) << bike.rentalRatePerHour
+            << setw(18) << bike.station
+            << setw(10) << bike.status << "\n";
+    }   
 }
 
 void SaveInventoryToFile(const vector<Bicycle>& inventory) {
@@ -3287,7 +3323,7 @@ void CreateBooking(vector<Booking>& bookings, vector<Bicycle>& inventory,
         // Validate end time
         bool endValid = false;
         while (!endValid) {
-            cout << "Enter end time (HH:MM, 24-hour format): ";
+            cout << "Enter end time (HH:MM, 24-hour format, e.g., 14:30): ";
             getline(cin, endTime);
             if (endTime.length() != 5 || endTime[2] != ':' ||
                 !isdigit(endTime[0]) || !isdigit(endTime[1]) ||
@@ -3373,7 +3409,7 @@ void CreateBooking(vector<Booking>& bookings, vector<Bicycle>& inventory,
     cout << "Duration       : " << tempBooking.duration << " hours\n";
     cout << "Pickup Station : " << tempBooking.pickupStation << "\n";
     cout << "Membership     : " << tempBooking.membershipType << " (" << tempBooking.discount << "% discount)\n";
-    cout << "--------------------------\n";
+    cout << "==============================\n";
 
     if (!confirmAction("Do you confirm all details are correct?")) {
         cout << "\nBooking cancelled.\n";
@@ -3479,7 +3515,7 @@ void ViewMyBookings(const vector<Booking>& bookings, const string& customerID) {
         }
         int opt = input[0] - '0';
         if (opt == 0) {
-            if (confirmAction("Are you sure you want to return back?")) {
+            if (confirmAction("Are you sure want to return back?")) {
                 cout << "Returning...\n";
                 waitForEnter();
                 return;
@@ -3533,7 +3569,10 @@ void ReturnBicycle(vector<Booking>& bookings, vector<Bicycle>& inventory,
         // 2. Display active bookings in table format
         // ------------------------------------------------------------
         clearScreen();
-        cout << "Your active bookings:\n";
+        cout << "==============================\n";
+        cout << "        RETURN BICYCLE        \n";
+        cout << "==============================\n";
+		cout << "Your active bookings:\n\n";
         cout << left << setw(6) << "No."
             << setw(14) << "Booking ID"
             << setw(12) << "Bike ID"
@@ -3560,13 +3599,13 @@ void ReturnBicycle(vector<Booking>& bookings, vector<Bicycle>& inventory,
                 << active[i]->returnTime << "\n";
         }
         cout << string(80, '-') << "\n";
-        cout << "[0] Back\n";
+        cout << "[0] Back\n\n";
 
         // ------------------------------------------------------------
         // 3. Let the user choose which booking to return
         // ------------------------------------------------------------
         string choiceInput;
-        cout << "Select booking ID to return (0-" << active.size() << "): ";
+        cout << "Enter your option to return (0-" << active.size() << "): ";
         getline(cin, choiceInput);
 
         if (choiceInput == "0") {
@@ -3913,7 +3952,7 @@ string ProcessPaymentForBooking(const Booking& booking, double rentalHours,
     cout << "Subtotal     : RM " << subtotal << "\n";
     cout << "Tax (6%)     : RM " << tax << "\n";
     cout << "Total Amount : RM " << total << "\n";
-    cout << "=====================================\n\n";
+    cout << "=================================\n\n";
 
     // ---------- PAYMENT AMOUNT REMOVED – use total directly ----------
     double paid = total;   // amount paid is exactly the total
@@ -3926,12 +3965,12 @@ string ProcessPaymentForBooking(const Booking& booking, double rentalHours,
         string methInput;
         getline(cin, methInput);
         if (methInput.empty() || methInput.length() != 1 || !isdigit(methInput[0])) {
-            cout << "[X] Invalid input. Please enter a number between 1 and 3.\n";
+            cout << "[X] Invalid input. Please enter a number between 1 and 3.\n\n";
             continue;
         }
         methodChoice = methInput[0] - '0';
         if (methodChoice < 1 || methodChoice > 3) {
-            cout << "[X] Invalid choice. Please enter 1, 2, or 3.\n";
+            cout << "[X] Invalid choice. Please enter 1, 2, or 3.\n\n";
             continue;
         }
         break;
@@ -4085,7 +4124,7 @@ bool isValidExpiry(const string& expiry) {
     return true;
 }
 
-void DisplayUserPaymentHistory(const string& customerName, const vector<Booking>& bookings) {
+void DisplayUserPaymentHistory(const string& customerName, const vector<Booking>& bookings, const vector<Bicycle>& inventory) {
     clearScreen();
 
     vector<Payment> customerPayments;
@@ -4113,12 +4152,12 @@ void DisplayUserPaymentHistory(const string& customerName, const vector<Booking>
         cout << left
             << setw(12) << "Payment ID"
             << setw(12) << "Booking ID"
-            << setw(10) << "Bike ID"
+            << setw(14) << "Bike Type"          // Changed from "Bike ID"
             << setw(8) << "Hours"
             << setw(14) << "Amount (RM)"
             << setw(16) << "Method"
             << setw(12) << "Date" << "\n";
-        cout << string(84, '-') << "\n";
+        cout << string(88, '-') << "\n";        // adjusted width
 
         size_t first = page * PER_PAGE;
         size_t last = min(first + PER_PAGE, customerPayments.size());
@@ -4131,21 +4170,32 @@ void DisplayUserPaymentHistory(const string& customerName, const vector<Booking>
                     break;
                 }
             }
+
+            // ─── Get bike type from inventory ───
+            string bikeType = "Unknown";
+            for (const auto& bike : inventory) {
+                if (bike.bikeID == p.bikeID) {
+                    bikeType = bike.type;
+                    break;
+                }
+            }
+
             string status = p.paymentAmount < 0 ? p.refundStatus : "-";
             if (p.paymentAmount < 0 && p.refundStatus == "Rejected" && !p.rejectReason.empty()) {
                 status += " (Reason: " + p.rejectReason + ")";
             }
+
             cout << left
                 << setw(12) << p.paymentID
                 << setw(12) << p.bookingID
-                << setw(10) << p.bikeID
+                << setw(14) << bikeType           // now displays bike type
                 << setw(8) << durationStr
                 << setw(14) << fixed << setprecision(2) << p.paymentAmount
                 << setw(16) << p.paymentMethod
                 << setw(12) << p.paymentDate << "\n";
         }
 
-        cout << string(84, '-') << "\n";
+        cout << string(88, '-') << "\n";
         cout << "Page " << page + 1 << "/" << totalPages << "\n\n";
         cout << "[1] Previous Page  [2] Next Page  [0] Back\n";
         cout << "Enter your option (0-2): ";
@@ -4190,7 +4240,7 @@ void DisplayUserPaymentHistory(const string& customerName, const vector<Booking>
 void RequestRefund(vector<Account>& users, int currentIdx,
     vector<Booking>& bookings,
     vector<Payment>& transactions,
-    const vector<Bicycle>& inventory)   // <-- added inventory
+    const vector<Bicycle>& inventory)
 {
     clearScreen();
 
@@ -4238,7 +4288,7 @@ void RequestRefund(vector<Account>& users, int currentIdx,
         cout << "==============================\n";
         cout << "         REQUEST REFUND       \n";
         cout << "==============================\n";
-        cout << "\nSelect a booking:\n";
+        cout << "\nSelect a booking to request refund:\n\n";
         cout << left << setw(6) << "No."
             << setw(14) << "Payment ID"
             << setw(14) << "Booking ID"
@@ -4276,7 +4326,7 @@ void RequestRefund(vector<Account>& users, int currentIdx,
                 << status << "\n";
         }
         cout << string(80, '-') << "\n";
-        cout << "[0] Cancel\n";
+        cout << "[0] Cancel\n\n";
 
         // 4. Get user choice
         int choice = getValidOption(0, (int)completed.size());
@@ -4312,10 +4362,16 @@ void RequestRefund(vector<Account>& users, int currentIdx,
             continue;
         }
 
-        // 7. Create refund request
+        // 7. Create refund request – reason is now REQUIRED
         string reason;
-        cout << "\nBrief reason for refund (press Enter to skip): ";
-        getline(cin, reason);
+        while (true) {
+            cout << "\nPlease provide a brief reason for the refund: ";
+            getline(cin, reason);
+            if (!reason.empty()) {
+                break;
+            }
+            cout << "[X] Reason cannot be empty. Please enter a reason.\n";
+        }
 
         Payment refundRequest;
         refundRequest.paymentID = generatePaymentID(transactions);
@@ -4398,63 +4454,72 @@ void adminRefundManagement(vector<Payment>& transactions)
                 waitForEnter();
                 return;
             }
-            continue;
+            continue;   // user cancelled – stay on the list (outer loop)
         }
 
         // ---- Valid selection ----
         Payment& selected = *pending[choice - 1];
 
-        // 4. Show details
-        clearScreen();
-        cout << "=== REFUND REQUEST DETAILS ===\n";
-        cout << "Refund ID  : " << selected.refundID << "\n";
-        cout << "Booking ID : " << selected.bookingID << "\n";
-        cout << "Customer   : " << selected.customerName << "\n";
-        cout << "Requested  : " << selected.requestDate << "\n";
+        // ----- Inner loop for details page (so cancelling "Back" stays on details) -----
+        bool detailsDone = false;
+        while (!detailsDone) {
+            clearScreen();
+            cout << "==============================\n";
+            cout << "    REFUND REQUEST DETAILS    \n";
+            cout << "==============================\n";
+            cout << "Refund ID  : " << selected.refundID << "\n";
+            cout << "Booking ID : " << selected.bookingID << "\n";
+            cout << "Customer   : " << selected.customerName << "\n";
+            cout << "Requested  : " << selected.requestDate << "\n";
 
-        // Find original payment amount
-        double originalAmount = 0.0;
-        for (const auto& p : transactions) {
-            if (p.bookingID == selected.bookingID && p.paymentAmount > 0) {
-                originalAmount = p.paymentAmount;
-                break;
+            // Find original payment amount
+            double originalAmount = 0.0;
+            for (const auto& p : transactions) {
+                if (p.bookingID == selected.bookingID && p.paymentAmount > 0) {
+                    originalAmount = p.paymentAmount;
+                    break;
+                }
             }
-        }
-        cout << "Original amount: RM " << fixed << setprecision(2) << originalAmount << "\n";
+            cout << "Original amount: RM " << fixed << setprecision(2) << originalAmount << "\n";
 
-        // 5. Approve or reject
-        cout << "\n[1] Approve refund\n";
-        cout << "[2] Reject refund\n";
-        cout << "[0] Back\n";
+            // 5. Approve or reject
+            cout << "\n[1] Approve refund\n";
+            cout << "[2] Reject refund\n";
+            cout << "[0] Back\n";
 
-        int action = getValidOption(0, 2);
+            int action = getValidOption(0, 2);
 
-        if (action == -1) {
-            continue;   // invalid input – go back to list
-        }
+            if (action == -1) {
+                continue;   
+            }
 
-        if (action == 0) {
-            continue;   // back to list
-        }
+            if (action == 0) {
+                if (confirmAction("Are you sure want to go back?")) {
+                    detailsDone = true;   
+                }
+                continue;   
+            }
 
-        // ---- Process action ----
-        if (action == 1) {
-            selected.refundStatus = "Approved";
-            cout << "\nRefund approved.\n";
-        }
-        else { // action == 2
-            cout << "Enter reason for rejection: ";
-            string reason;
-            getline(cin, reason);
-            selected.refundStatus = "Rejected";
-            selected.rejectReason = reason;
-            cout << "\nRefund rejected.\n";
-        }
-
-        SavePaymentToFile();
-        waitForEnter();
-        return;   // exit after processing one request
-    }
+            if (action == 1) {
+                selected.refundStatus = "Approved";
+                cout << "\nRefund approved.\n";
+                SavePaymentToFile();
+                waitForEnter();
+                return;   
+            }
+            else if (action == 2) {
+                cout << "Enter reason for rejection: ";
+                string reason;
+                getline(cin, reason);
+                selected.refundStatus = "Rejected";
+                selected.rejectReason = reason;
+                cout << "\nRefund rejected.\n";
+                SavePaymentToFile();
+                waitForEnter();
+                return;  
+            }
+        } 
+    } 
 }
 
 
@@ -4522,7 +4587,7 @@ void DisplayAllPayments(const vector<Booking>& bookings) {
         int opt = input[0] - '0';
 
         if (opt == 0) {
-            if (confirmAction("Are you sure you want to go back?")) {
+            if (confirmAction("Are you sure want to go back?")) {
                 cout << "Returning...\n";
                 waitForEnter();
                 return;
@@ -4848,7 +4913,7 @@ void memberTypeAnalytics(const vector<Account>& users) {
     for (const string& type : types) {
         double pct = total == 0 ? 0 : (count[type] * 100.0 / total);
         cout << left << setw(18) << type << setw(15) << count[type]
-            << setw(14) << fixed << setprecision(2) << pct << "%";
+            << setw(14) << fixed << setprecision(2) << pct;
         if (type == "Bronze") cout << "Basic membership\n";
         else if (type == "Silver") cout << "Regular membership\n";
         else if (type == "Gold") cout << "Premium membership\n";
@@ -4942,7 +5007,10 @@ void revenueAnalytics(const vector<Payment>& transactions) {
     map<string, pair<int, double>> annual;
     map<string, pair<int, double>> methods;
 
+    // Only process positive payments (revenue)
     for (const auto& p : transactions) {
+        if (p.paymentAmount <= 0) continue;   // skip refunds
+
         total += p.paymentAmount;
         monthly[getMonth(p.paymentDate)] += p.paymentAmount;
         string year = getYear(p.paymentDate);
@@ -4950,15 +5018,19 @@ void revenueAnalytics(const vector<Payment>& transactions) {
         annual[year].second += p.paymentAmount;
         methods[p.paymentMethod].first++;
         methods[p.paymentMethod].second += p.paymentAmount;
+
         if (p.paymentAmount > highest) {
             highest = p.paymentAmount;
-            highestID = stoi(p.paymentID.substr(3));
+            highestID = stoi(p.paymentID.substr(3));   // assumes "INVXXXX"
             highestCustomer = p.customerName;
         }
-        if (p.paymentAmount < lowest) lowest = p.paymentAmount;
+        if (p.paymentAmount < lowest) {
+            lowest = p.paymentAmount;
+        }
     }
 
-    double average = transactions.empty() ? 0 : total / transactions.size();
+    double average = (total == 0) ? 0 : total / (transactions.size() - count_if(transactions.begin(), transactions.end(),
+        [](const Payment& p) { return p.paymentAmount <= 0; }));
 
     clearScreen();
     cout << "====================================================================\n";
@@ -4985,7 +5057,7 @@ void revenueAnalytics(const vector<Payment>& transactions) {
         for (const string& m : months) {
             int cnt = 0;
             for (const auto& p : transactions) {
-                if (getMonth(p.paymentDate) == m) ++cnt;
+                if (p.paymentAmount > 0 && getMonth(p.paymentDate) == m) ++cnt;
             }
             cout << left << setw(15) << monthName(m) << setw(18) << cnt << money(monthly[m]) << '\n';
         }
@@ -5019,7 +5091,7 @@ void revenueAnalytics(const vector<Payment>& transactions) {
     }
 
     cout << "\n---------------- REVENUE INSIGHTS ----------------\n";
-    if (!transactions.empty()) {
+    if (!transactions.empty() && total > 0) {
         string bestMonth = "";
         double bestMonthRev = -1;
         for (const auto& item : monthly) {
@@ -5057,7 +5129,7 @@ void revenueAnalytics(const vector<Payment>& transactions) {
         cout << "Lowest payment        : " << money(lowest) << "\n";
     }
     else {
-        cout << "No payment records are available for analysis.\n";
+        cout << "No revenue data available (positive payments only).\n";
     }
     waitForEnter();
 }
@@ -5085,10 +5157,11 @@ void bicycleAnalysis(const vector<Bicycle>& inventory) {
     cout << left << setw(18) << "Total" << setw(12) << inventory.size() << "100.0%\n";
 
     cout << "\n---------------- BICYCLE TYPE BAR CHART ----------------\n";
-    cout << "Each # represents approximately 1 bicycle.\n\n";
+    cout << "Each # represents 10 bicycles.\n\n";
     for (const string& t : types) {
         cout << left << setw(11) << t << " | ";
-        for (int i = 0; i < counts[t]; ++i) cout << '#';
+        int numBars = counts[t] / 10;        
+        for (int i = 0; i < numBars; ++i) cout << '#';
         cout << "  " << counts[t] << '\n';
     }
 
