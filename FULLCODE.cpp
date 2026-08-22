@@ -88,6 +88,7 @@ struct RepairReport {
     string station;
 };
 
+// Bicycle structure
 struct Bicycle {
     string bikeID;
     string type;
@@ -118,6 +119,7 @@ struct Booking {
 const double OVERTIME_RATE = 5.50;
 const double TAX_RATE = 0.06;
 
+// Payment structure
 struct Payment {
     string paymentID;
     string bookingID;
@@ -190,7 +192,7 @@ void User_LoadFile(vector<Account>& users);
 void Repair_SaveFile(const vector<RepairReport>& repairs);
 void Repair_LoadFile(vector<RepairReport>& repairs);
 
-// Bicycle inventory functions
+// Bicycle inventory function prototypes
 void DisplayInventoryMenu(vector<Bicycle>& inventory, vector<Booking>& bookings);
 bool isValidBikeType(const string& type);
 bool isInteger(const string& s);
@@ -218,7 +220,7 @@ void SyncInventoryWithBookings(const vector<Booking>& bookings, vector<Bicycle>&
 bool checkAvailability(const string& bikeID, const vector<Bicycle>& inventory);
 bool hasActiveBookingForBike(const string& bikeID, const vector<Booking>& bookings);
 
-// Payment functions
+// Payment function prototypes
 void LoadPaymentFromFile();
 void SavePaymentToFile();
 string ProcessPaymentForBooking(const Booking& booking, double rentalHours, double baseRate, const string& customerName, const string& bikeType);
@@ -321,6 +323,7 @@ string generateRepairID(const vector<RepairReport>& repairs) {
     return generateIDFromList(ids, "BRR");
 }
 
+// Generate Bicycle ID (e.g., BIC0001)
 string generateBicycleID(const vector<Bicycle>& inventory) {
     vector<string> ids;
     ids.reserve(inventory.size());
@@ -337,6 +340,7 @@ string generateBookingID(const vector<Booking>& bookings) {
     return generateIDFromList(ids, "BKK");
 }
 
+// Generate Payment ID (e.g., INV0001)
 string generatePaymentID(const vector<Payment>& payments) {
     vector<string> ids;
     ids.reserve(payments.size());
@@ -345,6 +349,7 @@ string generatePaymentID(const vector<Payment>& payments) {
     return generateIDFromList(ids, "INV");
 }
 
+// Generate Refund ID (e.g., RRP0001)
 string generateRefundID(const vector<Payment>& payments) {
     vector<string> ids;
     for (const auto& p : payments) {
@@ -2403,7 +2408,7 @@ void Repair_LoadFile(vector<RepairReport>& repairs) {
 }
 
 // ==================================================================
-// BICYCLE INVENTORY FUNCTIONS
+// BICYCLE INVENTORY MENU FUNCTIONS
 // ==================================================================
 
 void DisplayInventoryMenu(vector<Bicycle>& inventory, vector<Booking>& bookings) {
@@ -2438,6 +2443,7 @@ void DisplayInventoryMenu(vector<Bicycle>& inventory, vector<Booking>& bookings)
         case 5: {
             while (true) {
                 clearScreen();
+				// Search by bicycle type
                 cout << "===================================\n";
                 cout << "       SEARCH BY BICYCLE TYPE      \n";
                 cout << "===================================\n";
@@ -2577,6 +2583,7 @@ bool isDouble(const string& s) {
     return true;
 }
 
+// Station for storing bicycles
 string getStationFromUser(bool allowCancel, const string& purpose) {
     while (true) {
         clearScreen();
@@ -2638,7 +2645,7 @@ string getStationFromUser(bool allowCancel, const string& purpose) {
 
         // ---- Handle cancellation ----
         if (allowCancel && choice == 0) {
-            return "";   // caller checks for empty string
+            return "";   
         }
 
         // ---- Validate choice range ----
@@ -2654,6 +2661,7 @@ string getStationFromUser(bool allowCancel, const string& purpose) {
     }
 }
 
+// Add new bicycle function
 void AddBicycle(vector<Bicycle>& inventory) {
     clearScreen();
     cout << "===================================\n";
@@ -2725,6 +2733,7 @@ void AddBicycle(vector<Bicycle>& inventory) {
     waitForEnter();
 }
 
+// Update bicycle function
 void UpdateBicycle(vector<Bicycle>& inventory, const vector<Booking>& bookings) {
     clearScreen();
     ViewBicycle(inventory);
@@ -2870,6 +2879,7 @@ void UpdateBicycle(vector<Bicycle>& inventory, const vector<Booking>& bookings) 
     }
 }
 
+// Remove bicycle function
 void RemoveBicycle(vector<Bicycle>& inventory) {
     clearScreen();
     ViewBicycle(inventory);
@@ -2971,6 +2981,7 @@ void ViewBicycle(const vector<Bicycle>& inventory) {
     }
 }
 
+// Save bicycle inventory to svg file
 void SaveInventoryToFile(const vector<Bicycle>& inventory) {
     ofstream outFile(INVENTORY_FILE);
     if (!outFile) {
@@ -2984,6 +2995,7 @@ void SaveInventoryToFile(const vector<Bicycle>& inventory) {
     outFile.close();
 }
 
+// Load bicycle inventory from svg file
 void LoadInventoryFromFile(vector<Bicycle>& inventory) {
     ifstream inFile(INVENTORY_FILE);
     if (!inFile) return;
@@ -3917,6 +3929,7 @@ string readCardNumberWithFormat() {
     return raw;
 }
 
+// Process payment function
 string ProcessPaymentForBooking(const Booking& booking, double rentalHours,
     double baseRate, const string& customerName, const string& bikeType) {
     double baseFee = CalculateRentalFee(rentalHours, baseRate);
@@ -3954,10 +3967,9 @@ string ProcessPaymentForBooking(const Booking& booking, double rentalHours,
     cout << "Total Amount : RM " << total << "\n";
     cout << "=================================\n\n";
 
-    // ---------- PAYMENT AMOUNT REMOVED – use total directly ----------
-    double paid = total;   // amount paid is exactly the total
+    double paid = total;   
 
-    // ---------- PAYMENT METHOD SELECTION – no default, loop until valid ----------
+    // ---------- PAYMENT METHOD SELECTION  ----------
     int methodChoice;
     string method;
     while (true) {
@@ -4050,7 +4062,7 @@ string ProcessPaymentForBooking(const Booking& booking, double rentalHours,
             phoneValid = true;
         } while (!phoneValid);
 
-        // ---- NEW: password prompt (6 digits) ----
+        // ---- TOUCH 'N GO PIN NUMBER ----
         string password;
         bool pwdValid = false;
         do {
@@ -4124,6 +4136,7 @@ bool isValidExpiry(const string& expiry) {
     return true;
 }
 
+// Display payment history for user
 void DisplayUserPaymentHistory(const string& customerName, const vector<Booking>& bookings, const vector<Bicycle>& inventory) {
     clearScreen();
 
@@ -4152,12 +4165,12 @@ void DisplayUserPaymentHistory(const string& customerName, const vector<Booking>
         cout << left
             << setw(12) << "Payment ID"
             << setw(12) << "Booking ID"
-            << setw(14) << "Bike Type"          // Changed from "Bike ID"
+            << setw(14) << "Bike Type"          
             << setw(8) << "Hours"
             << setw(14) << "Amount (RM)"
             << setw(16) << "Method"
             << setw(12) << "Date" << "\n";
-        cout << string(88, '-') << "\n";        // adjusted width
+        cout << string(88, '-') << "\n";      
 
         size_t first = page * PER_PAGE;
         size_t last = min(first + PER_PAGE, customerPayments.size());
@@ -4171,7 +4184,6 @@ void DisplayUserPaymentHistory(const string& customerName, const vector<Booking>
                 }
             }
 
-            // ─── Get bike type from inventory ───
             string bikeType = "Unknown";
             for (const auto& bike : inventory) {
                 if (bike.bikeID == p.bikeID) {
@@ -4188,7 +4200,7 @@ void DisplayUserPaymentHistory(const string& customerName, const vector<Booking>
             cout << left
                 << setw(12) << p.paymentID
                 << setw(12) << p.bookingID
-                << setw(14) << bikeType           // now displays bike type
+                << setw(14) << bikeType          
                 << setw(8) << durationStr
                 << setw(14) << fixed << setprecision(2) << p.paymentAmount
                 << setw(16) << p.paymentMethod
@@ -4237,6 +4249,7 @@ void DisplayUserPaymentHistory(const string& customerName, const vector<Booking>
     }
 }
 
+// Request Refund function
 void RequestRefund(vector<Account>& users, int currentIdx,
     vector<Booking>& bookings,
     vector<Payment>& transactions,
@@ -4246,7 +4259,6 @@ void RequestRefund(vector<Account>& users, int currentIdx,
 
     const Account& user = users[currentIdx];
 
-    // 1. Find all completed bookings for this user
     vector<Booking> completed;
     for (const auto& b : bookings) {
         if (b.customerID == user.accountID && b.status == "Completed") {
@@ -4266,14 +4278,12 @@ void RequestRefund(vector<Account>& users, int currentIdx,
         map<string, string> paymentIDMap;
 
         for (const auto& b : completed) {
-            // Find the original payment (positive amount) for this booking
             for (const auto& p : transactions) {
                 if (p.bookingID == b.bookingID && p.paymentAmount > 0) {
                     paymentIDMap[b.bookingID] = p.paymentID;
                     break;
                 }
             }
-            // Find any refund request (negative amount) for this booking
             for (const auto& p : transactions) {
                 if (p.bookingID == b.bookingID && p.paymentAmount < 0 && !p.refundStatus.empty()) {
                     refundStatusMap[b.bookingID] = p.refundStatus;
@@ -4283,7 +4293,7 @@ void RequestRefund(vector<Account>& users, int currentIdx,
             }
         }
 
-        // 3. Display the list
+        // Display the list
         clearScreen();
         cout << "==============================\n";
         cout << "         REQUEST REFUND       \n";
@@ -4300,10 +4310,8 @@ void RequestRefund(vector<Account>& users, int currentIdx,
         for (size_t i = 0; i < completed.size(); ++i) {
             const auto& b = completed[i];
 
-            // Get payment ID
             string paymentID = paymentIDMap.count(b.bookingID) ? paymentIDMap[b.bookingID] : "N/A";
 
-            // Get bike type from inventory
             string bikeType = "Unknown";
             for (const auto& bike : inventory) {
                 if (bike.bikeID == b.bikeID) {
@@ -4312,7 +4320,6 @@ void RequestRefund(vector<Account>& users, int currentIdx,
                 }
             }
 
-            // Get refund status
             string status = refundStatusMap.count(b.bookingID) ? refundStatusMap[b.bookingID] : "Available";
             if (status == "Rejected" && !refundReasonMap[b.bookingID].empty()) {
                 status += " (Reason: " + refundReasonMap[b.bookingID] + ")";
@@ -4328,7 +4335,6 @@ void RequestRefund(vector<Account>& users, int currentIdx,
         cout << string(80, '-') << "\n";
         cout << "[0] Cancel\n\n";
 
-        // 4. Get user choice
         int choice = getValidOption(0, (int)completed.size());
         if (choice == -1) {
             clearScreen();
@@ -4347,10 +4353,8 @@ void RequestRefund(vector<Account>& users, int currentIdx,
             }
         }
 
-        // 5. Valid selection
         Booking& selected = completed[choice - 1];
 
-        // 6. Check if this booking already has a refund request
         if (refundStatusMap.count(selected.bookingID)) {
             string status = refundStatusMap[selected.bookingID];
             cout << "\nThis booking already has a refund status: " << status << ".\n";
@@ -4362,7 +4366,6 @@ void RequestRefund(vector<Account>& users, int currentIdx,
             continue;
         }
 
-        // 7. Create refund request – reason is now REQUIRED
         string reason;
         while (true) {
             cout << "\nPlease provide a brief reason for the refund: ";
@@ -4378,7 +4381,7 @@ void RequestRefund(vector<Account>& users, int currentIdx,
         refundRequest.bookingID = selected.bookingID;
         refundRequest.bikeID = selected.bikeID;
         refundRequest.customerName = user.name;
-        refundRequest.paymentAmount = -1.0;          // negative to mark as refund
+        refundRequest.paymentAmount = -1.0;         
         refundRequest.paymentMethod = "Refund Request";
         string date, time;
         getCurrentDateTime(date, time);
@@ -4398,6 +4401,7 @@ void RequestRefund(vector<Account>& users, int currentIdx,
     }
 }
 
+// Refund Management for admin to approve or reject
 void adminRefundManagement(vector<Payment>& transactions)
 {
     while (true) {
@@ -4406,7 +4410,6 @@ void adminRefundManagement(vector<Payment>& transactions)
         cout << "       REFUND MANAGEMENT      \n";
         cout << "==============================\n";
 
-        // 1. Gather all pending refund requests
         vector<Payment*> pending;
         for (auto& p : transactions) {
             if (p.paymentAmount < 0 && p.refundStatus == "Pending") {
@@ -4420,7 +4423,6 @@ void adminRefundManagement(vector<Payment>& transactions)
             return;
         }
 
-        // 2. Display pending requests in a table
         cout << "\nPlease select a refund request to manage:\n";
         cout << left
             << setw(5) << "No"
@@ -4441,7 +4443,6 @@ void adminRefundManagement(vector<Payment>& transactions)
         cout << string(70, '-') << "\n";
         cout << "[0] Back\n";
 
-        // 3. Get admin choice
         int choice = getValidOption(0, (int)pending.size());
 
         if (choice == -1) {
@@ -4454,13 +4455,12 @@ void adminRefundManagement(vector<Payment>& transactions)
                 waitForEnter();
                 return;
             }
-            continue;   // user cancelled – stay on the list (outer loop)
+            continue;   
         }
 
         // ---- Valid selection ----
         Payment& selected = *pending[choice - 1];
 
-        // ----- Inner loop for details page (so cancelling "Back" stays on details) -----
         bool detailsDone = false;
         while (!detailsDone) {
             clearScreen();
@@ -4472,7 +4472,6 @@ void adminRefundManagement(vector<Payment>& transactions)
             cout << "Customer   : " << selected.customerName << "\n";
             cout << "Requested  : " << selected.requestDate << "\n";
 
-            // Find original payment amount
             double originalAmount = 0.0;
             for (const auto& p : transactions) {
                 if (p.bookingID == selected.bookingID && p.paymentAmount > 0) {
@@ -4482,7 +4481,7 @@ void adminRefundManagement(vector<Payment>& transactions)
             }
             cout << "Original amount: RM " << fixed << setprecision(2) << originalAmount << "\n";
 
-            // 5. Approve or reject
+            // Approve or reject
             cout << "\n[1] Approve refund\n";
             cout << "[2] Reject refund\n";
             cout << "[0] Back\n";
@@ -4522,7 +4521,7 @@ void adminRefundManagement(vector<Payment>& transactions)
     }
 }
 
-
+// Display all transactions for admin
 void DisplayAllPayments(const vector<Booking>& bookings) {
     clearScreen();
     if (transactions.empty()) {
@@ -4531,7 +4530,7 @@ void DisplayAllPayments(const vector<Booking>& bookings) {
         return;
     }
 
-    const int PER_PAGE = 10;   // adjust as needed
+    const int PER_PAGE = 10;   
     int page = 0;
     int totalPages = static_cast<int>((transactions.size() + PER_PAGE - 1) / PER_PAGE);
 
@@ -4614,6 +4613,7 @@ void DisplayAllPayments(const vector<Booking>& bookings) {
     }
 }
 
+// Generate receipt for user after payment
 void GenerateReceipt(const string& paymentID, const string& bookingID, const string& bikeID, const string& customerName, double amount, const string& method, const string& date, const string& bookingDate, const string& bookingTime, const string& returnTime, const string& pickupStation) {
     for (const auto& p : transactions) {
         if (p.paymentID == paymentID) {
@@ -4665,6 +4665,7 @@ void printQRCode(const string& data)
     cout << "\n==================================================\n";
 }
 
+// Generate QR Code is svg file
 void generateQRCodeSVG(const string& data, const string& filename)
 {
     QrCode qr = QrCode::encodeText(data.c_str(), QrCode::Ecc::MEDIUM);
@@ -4697,6 +4698,7 @@ void generateQRCodeSVG(const string& data, const string& filename)
     cout << "\nQR Code SVG generated: " << filename << "\n";
 }
 
+// Generate invoice function
 void printInvoice(
     const string& invoiceNo,
     const string& customerName,
@@ -4762,6 +4764,7 @@ void printInvoice(
     generateQRCodeSVG(qrData, svgFilename);
 }
 
+// Save payment data to file
 void SavePaymentToFile() {
     ofstream out(PAYMENT_FILE);
     if (!out) return;
@@ -4776,6 +4779,7 @@ void SavePaymentToFile() {
     out.close();
 }
 
+// Load payment data from file
 void LoadPaymentFromFile() {
     ifstream in(PAYMENT_FILE);
     if (!in) return;
@@ -4878,7 +4882,7 @@ void generateInvoiceForUser(
     );
 
     cout << "\n" << indent << "Invoice generated successfully!\n";
-    cout << indent << "Files created: " << baseFilename << ".svg  and  " << baseFilename << ".html\n";
+    cout << indent << "Files created: " << baseFilename << ".svg file.\n";
     waitForEnter(indent);
 }
 
